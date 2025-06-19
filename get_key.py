@@ -2,20 +2,17 @@ from tkinter.messagebox import showerror
 import keyboard
 from datetime import datetime
 
-dickey = []
+details_keys = []
 translat_key = {'space': ' ', 'enter': '\n', 'tab': '\t', 'caps lock': ''}
 
 def on_key(e):
     key_value = " "
     human_time = datetime.fromtimestamp(e.time).strftime('%Y-%m-%d %H:%M')
     if e.name == 'backspace':
-        if dickey:
-            dickey.pop()
+        if details_keys:
+            details_keys.pop()
             return
     key_value = translat_key.get(e.name, e.name)
-    dickey.append({human_time: key_value})
-    print(dickey)
-    return dickey
+    details_keys.append({human_time: key_value})
+    return details_keys
 
-keyboard.on_press(on_key)
-keyboard.wait("ctrl+shift+g")
