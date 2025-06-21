@@ -7,6 +7,5 @@ def print_project_info():
     print()
     print("All rights reserved.")
     print("Do not copy, use for malicious purposes, or distribute without permission.")
-    print("© 2025")
 
 print_project_info()
