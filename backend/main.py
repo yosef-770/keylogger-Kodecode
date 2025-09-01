@@ -101,6 +101,10 @@ def hello_world():
         }
     })
 
+@app.route("/dashboard")
+def dashboard():
+    return app.send_static_file("dashboard.html")
+
 
 if __name__ == "__main__":
     app.run()
