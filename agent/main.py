@@ -1,4 +1,3 @@
-import print_credit
 import keyboard
 import get_key
 from text_by_minute import key_by_minute
