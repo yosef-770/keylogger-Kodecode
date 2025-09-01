@@ -1,0 +1,83 @@
+from datetime import datetime
+
+from flask import Flask, request, jsonify
+
+from backend.db import DB
+
+app = Flask(__name__)
+db = DB()
+
+# get
+@app.route("/logs")
+def logs():
+    all_logs = db.fetch_logs()
+    return jsonify(logs=all_logs)
+
+@app.route("/logs/user")
+def get_all_usernames():
+    usernames = db.get_all_usernames()
+    return jsonify(usernames=usernames)
+
+@app.route("/logs/user/<string:username>")
+def get_logs_by_username(username):
+    user_logs = db.get_by_username(username)
+    return jsonify(logs=user_logs)
+
+@app.route("/logs/machine")
+def get_all_machines():
+    machines = db.get_all_machines()
+    return jsonify(machines=machines)
+
+@app.route("/logs/machine/<string:machine>")
+def get_logs_by_machine(machine):
+    machine_logs = db.get_by_machine(machine)
+    return jsonify(logs=machine_logs)
+
+@app.route("/logs/date")
+def get_logs_by_date_range():
+    start_date = request.args.get('start')
+    end_date = request.args.get('end')
+    if not start_date or not end_date:
+        return jsonify({"error": "Please provide both start and end date in YYYY-MM-DD format"}), 400
+
+    date_logs = db.get_by_date_range(start_date, end_date)
+    return jsonify(logs=date_logs)
+
+# post
+@app.route("/logs", methods=['POST'])
+def add_log():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    print(data)
+
+    timestamp = data.get("time", str(datetime.now()))
+    events = data.get("events", [])
+    username = data.get("username", "unknown")
+    machine = data.get("machine")
+    if timestamp and events:
+        db.insert_log(timestamp, events, username, machine)
+
+    return jsonify({"message": "Logs added successfully"}), 201
+
+
+# delete
+@app.route("/logs/<int:log_id>", methods=['DELETE'])
+def delete_log(log_id):
+    db.delete_log(log_id)
+    return jsonify({"message": f"Log {log_id} deleted successfully"}), 200
+
+@app.route("/")
+def hello_world():
+    return jsonify({
+        "message": "Welcome to Keyboard Tracking API",
+        "endpoints": {
+            "GET /logs": "Fetch all logs",
+            "POST /logs": "Add new logs"
+        }
+    })
+
+
+if __name__ == "__main__":
+    app.run()

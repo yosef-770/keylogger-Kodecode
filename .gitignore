@@ -2,3 +2,5 @@ venv/
 *.py[cod]
 *$py.class
 .venv/
+
+backend/*.db
