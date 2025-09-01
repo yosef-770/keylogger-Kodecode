@@ -66,7 +66,7 @@ def add_log():
     username = data.get("username", "unknown")
     machine = data.get("machine")
     if timestamp and events:
-        db.insert_log(timestamp, events, username, machine)
+        db.insert_log(timestamp, events if type(events) == str else "".join(events), username, machine)
 
     return jsonify({"message": "Logs added successfully"}), 201
 
