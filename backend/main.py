@@ -43,6 +43,15 @@ def get_logs_by_date_range():
     date_logs = db.get_by_date_range(start_date, end_date)
     return jsonify(logs=date_logs)
 
+@app.route("/search")
+def search_text():
+    query = request.args.get('q', '')
+    if not query:
+        return jsonify({"error": "Please provide a search query parameter 'q'"}), 400
+
+    search_results = db.search_text(query)
+    return jsonify(logs=search_results)
+
 # post
 @app.route("/logs", methods=['POST'])
 def add_log():
