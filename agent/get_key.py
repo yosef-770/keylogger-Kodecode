@@ -11,7 +11,7 @@ def on_key(e):
     if e.name == 'backspace':
         if details_keys:
             details_keys.pop()
-            return
+            return details_keys
     key_value = translat_key.get(e.name, e.name)
     details_keys.append({human_time: key_value})
     return details_keys
