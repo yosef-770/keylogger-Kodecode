@@ -40,8 +40,10 @@ class DB:
             query += ' LIMIT ? OFFSET ?'
             params.extend([limit, offset])
 
-        self.cursor.execute(query, params)
-        return [dict(row) for row in self.cursor.fetchall()]
+        with self.conn:
+            cursor = self.conn.cursor()
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
 
     def get_by_username(self, username: str, offset=0, limit=None):
         query = 'SELECT * FROM logs WHERE username = ? ORDER BY timestamp DESC'
@@ -51,8 +53,10 @@ class DB:
             query += ' LIMIT ? OFFSET ?'
             params.extend([limit, offset])
 
-        self.cursor.execute(query, params)
-        return [dict(row) for row in self.cursor.fetchall()]
+        with self.conn:
+            cursor = self.conn.cursor()
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
 
     def get_all_usernames(self, offset=0, limit=None):
         query = 'SELECT DISTINCT username FROM logs'
@@ -62,8 +66,10 @@ class DB:
             query += ' LIMIT ? OFFSET ?'
             params.extend([limit, offset])
 
-        self.cursor.execute(query, params)
-        return [row[0] for row in self.cursor.fetchall()]
+        with self.conn:
+            cursor = self.conn.cursor()
+            cursor.execute(query, params)
+            return [row[0] for row in cursor.fetchall()]
 
     def get_all_machines(self, offset=0, limit=None):
         query = 'SELECT DISTINCT machine FROM logs'
@@ -73,8 +79,10 @@ class DB:
             query += ' LIMIT ? OFFSET ?'
             params.extend([limit, offset])
 
-        self.cursor.execute(query, params)
-        return [row[0] for row in self.cursor.fetchall()]
+        with self.conn:
+            cursor = self.conn.cursor()
+            cursor.execute(query, params)
+            return [row[0] for row in cursor.fetchall()]
 
     def get_by_machine(self, machine: str, offset=0, limit=None):
         query = 'SELECT * FROM logs WHERE machine = ? ORDER BY timestamp DESC'
@@ -84,8 +92,10 @@ class DB:
             query += ' LIMIT ? OFFSET ?'
             params.extend([limit, offset])
 
-        self.cursor.execute(query, params)
-        return [dict(row) for row in self.cursor.fetchall()]
+        with self.conn:
+            cursor = self.conn.cursor()
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
 
     def get_by_date_range(self, start_date: str, end_date: str, offset=0, limit=None):
         query = 'SELECT * FROM logs WHERE DATE(timestamp) BETWEEN DATE(?) AND DATE(?) ORDER BY timestamp DESC'
@@ -95,8 +105,10 @@ class DB:
             query += ' LIMIT ? OFFSET ?'
             params.extend([limit, offset])
 
-        self.cursor.execute(query, params)
-        return [dict(row) for row in self.cursor.fetchall()]
+        with self.conn:
+            cursor = self.conn.cursor()
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
 
     def search_text(self, query: str, offset=0, limit=None):
         sql_query = 'SELECT * FROM logs WHERE keylog LIKE ? ORDER BY timestamp DESC'
@@ -106,8 +118,10 @@ class DB:
             sql_query += ' LIMIT ? OFFSET ?'
             params.extend([limit, offset])
 
-        self.cursor.execute(sql_query, params)
-        return [dict(row) for row in self.cursor.fetchall()]
+        with self.conn:
+            cursor = self.conn.cursor()
+            cursor.execute(sql_query, params)
+            return [dict(row) for row in cursor.fetchall()]
 
     def delete_log(self, log_id: int):
         self.cursor.execute('DELETE FROM logs WHERE id = ?', (log_id,))
