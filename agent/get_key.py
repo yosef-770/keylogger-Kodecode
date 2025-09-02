@@ -1,5 +1,4 @@
-from tkinter.messagebox import showerror
-import keyboard
+
 from datetime import datetime
 
 details_keys = []

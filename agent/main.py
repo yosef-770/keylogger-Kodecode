@@ -2,7 +2,6 @@ import keyboard
 import get_key
 from agent.print_keystrokes import send_logs_to_backend
 from text_by_minute import key_by_minute
-from print_keystrokes import print_key_log
 from chek_if_show import check_if_get_show
 
 def call_on_key(e):
