@@ -1,11 +1,18 @@
+from os import getenv
 from datetime import datetime
+from dotenv import load_dotenv
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 
 from db import DB
 
+load_dotenv()
+
 app = Flask(__name__)
-db = DB()
+db = DB(db_name=getenv("DQLITE_PATH"))
+
+app.jinja_env.variable_start_string = '[['
+app.jinja_env.variable_end_string = ']]'
 
 # get
 @app.route("/logs")
@@ -91,19 +98,10 @@ def delete_log(log_id):
     db.delete_log(log_id)
     return jsonify({"message": f"Log {log_id} deleted successfully"}), 200
 
+
 @app.route("/")
 def hello_world():
-    return jsonify({
-        "message": "Welcome to Keyboard Tracking API",
-        "endpoints": {
-            "GET /logs": "Fetch all logs",
-            "POST /logs": "Add new logs"
-        }
-    })
-
-@app.route("/dashboard")
-def dashboard():
-    return app.send_static_file("dashboard.html")
+    return render_template("dashboard.html", base_url = getenv("BASE_URL"))
 
 
 if __name__ == "__main__":

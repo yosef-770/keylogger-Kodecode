@@ -2,7 +2,7 @@ from getpass import getuser
 
 import requests
 
-import consts
+from agent import consts
 
 
 def print_key_log(list_minute_of_keys):
@@ -28,4 +28,4 @@ def send_logs_to_backend(list_minute_of_keys):
             "events": items[1],
             "machine": username,
         }
-        requests.post(consts.BASE_URL + "/logs", json=data)
+        requests.post(consts.API_BASE_URL + "/logs", json=data)
