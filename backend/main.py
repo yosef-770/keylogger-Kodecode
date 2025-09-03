@@ -1,7 +1,7 @@
 from os import getenv
 from datetime import datetime
 from dotenv import load_dotenv
-
+import sqlite3
 from flask import Flask, request, jsonify, render_template
 
 from db import DB
@@ -19,7 +19,26 @@ app.jinja_env.variable_end_string = ']]'
 def logs():
     offset = request.args.get('offset', default=0, type=int)
     limit = request.args.get('limit', type=int)
-    all_logs = db.fetch_logs(offset=offset, limit=limit)
+    
+    username = request.args.get('username')
+    machine = request.args.get('machine')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    search_query = request.args.get('q')
+    
+    if any([username, machine, start_date, end_date, search_query]):
+        all_logs = db.fetch_logs_filtered(
+            username=username,
+            machine=machine,
+            start_date=start_date,
+            end_date=end_date,
+            search_query=search_query,
+            offset=offset,
+            limit=limit
+        )
+    else:
+        all_logs = db.fetch_logs(offset=offset, limit=limit)
+    
     return jsonify(logs=all_logs)
 
 @app.route("/logs/user")

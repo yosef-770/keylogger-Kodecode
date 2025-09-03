@@ -130,3 +130,34 @@ class DB:
     def close(self):
         self.conn.close()
 
+    def fetch_logs_filtered(self, username=None, machine=None, start_date=None, end_date=None, search_query=None, offset=0, limit=None):
+        query = 'SELECT * FROM logs WHERE 1=1'
+        params = []
+        
+        if username:
+            query += ' AND username = ?'
+            params.append(username)
+        
+        if machine:
+            query += ' AND machine = ?'
+            params.append(machine)
+        
+        if start_date and end_date:
+            query += ' AND datetime(timestamp) BETWEEN datetime(?) AND datetime(?)'
+            params.extend([start_date, end_date])
+        
+        if search_query:
+            query += ' AND keylog LIKE ?'
+            params.append(f'%{search_query}%')
+        
+        query += ' ORDER BY timestamp DESC'
+        
+        if limit is not None:
+            query += ' LIMIT ? OFFSET ?'
+            params.extend([limit, offset])
+        
+        with self.conn:
+            cursor = self.conn.cursor()
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
