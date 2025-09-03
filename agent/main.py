@@ -5,7 +5,7 @@ import get_key
 from print_credit import print_welcome
 from socket_client import init_socket, disconnect_handler
 
-debug = 'debug' in sys.argv # run with "python main.py debug" for local testing
+debug = 'debug' in sys.argv # run with "python app.py debug" for local testing
 sio = init_socket(debug)
 
 
