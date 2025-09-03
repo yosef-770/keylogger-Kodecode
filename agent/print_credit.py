@@ -1,11 +1,12 @@
-def print_project_info():
-    conf = "🎉" * 10
-    print(conf)
-    print("This project, 'Keylogger', was developed by:")
-    print("Yosef Avitan, Yossi Lerer, Moshe Marom")
-    print(conf)
-    print()
-    print("All rights reserved.")
-    print("Do not copy, use for malicious purposes, or distribute without permission.")
+import os
 
-print_project_info()
+def print_welcome():
+    # clear the console
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("""
+▗▖ ▗▖▗▄▄▄▖▗▖  ▗▖▗▖    ▗▄▖  ▗▄▄▖ ▗▄▄▖▗▄▄▄▖▗▄▄▖ 
+▐▌▗▞▘▐▌    ▝▚▞▘ ▐▌   ▐▌ ▐▌▐▌   ▐▌   ▐▌   ▐▌ ▐▌
+▐▛▚▖ ▐▛▀▀▘  ▐▌  ▐▌   ▐▌ ▐▌▐▌▝▜▌▐▌▝▜▌▐▛▀▀▘▐▛▀▚▖
+▐▌ ▐▌▐▙▄▄▖  ▐▌  ▐▙▄▄▖▝▚▄▞▘▝▚▄▞▘▝▚▄▞▘▐▙▄▄▖▐▌ ▐▌
+                                              
+    """)

@@ -2,3 +2,8 @@ requests==2.32.5
 Flask==3.1.2
 keyboard==0.13.5
 python-dotenv==1.1.1
+Flask-SocketIO==5.5.1
+python-socketio~=5.13.0
+dotenv~=0.9.9
+websocket-client==1.8.0
+urllib3==1.26.6

