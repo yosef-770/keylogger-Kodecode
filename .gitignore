@@ -3,5 +3,5 @@ venv/
 *$py.class
 .venv/
 
-backend/*.db
+**/*.db
 .env
