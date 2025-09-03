@@ -51,11 +51,11 @@ class DB:
         ''', (connection_id,))
         self.conn.commit()
 
-    def insert_log(self, connection_id: int, timestamp: int, events: str):
+    def insert_log(self, connection_id: int, timestamp: int, event: str):
         self.cursor.execute('''
             INSERT INTO events (timestmp, event, connection_id)
             VALUES (?, ?, ?)
-        ''', (timestamp, str(events), connection_id))
+        ''', (timestamp, str(event), connection_id))
         self.conn.commit()
 
     def delete_log(self, log_id: int):
