@@ -1,21 +1,24 @@
 from os import getenv
 from datetime import datetime
+
 from dotenv import load_dotenv
-import sqlite3
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session
+from flask_socketio import SocketIO, emit
 
 from db import DB
 
 load_dotenv()
 
 app = Flask(__name__)
-db = DB(db_name=getenv("DQLITE_PATH"))
-
+app.config['SECRET_KEY'] = 'secret!'
 app.jinja_env.variable_start_string = '[['
 app.jinja_env.variable_end_string = ']]'
+socketio = SocketIO(app)
+
+db = DB(db_name=getenv("DQLITE_PATH"))
 
 # get
-@app.route("/logs")
+@app.route("/connections")
 def logs():
     offset = request.args.get('offset', default=0, type=int)
     limit = request.args.get('limit', type=int)
@@ -25,90 +28,26 @@ def logs():
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     search_query = request.args.get('q')
+    status = request.args.get('status')
+    status = status if  status in ['open', 'closed'] else None
     
-    if any([username, machine, start_date, end_date, search_query]):
-        all_logs = db.fetch_logs_filtered(
+    if any([username, machine, start_date, end_date, status]):
+        all_logs = db.get_connections(
             username=username,
             machine=machine,
             start_date=start_date,
             end_date=end_date,
-            search_query=search_query,
             offset=offset,
-            limit=limit
+            limit=limit,
+            status=status
         )
     else:
-        all_logs = db.fetch_logs(offset=offset, limit=limit)
+        all_logs = db.get_connections(offset=offset, limit=limit)
     
     return jsonify(logs=all_logs)
 
-@app.route("/logs/user")
-def get_all_usernames():
-    offset = request.args.get('offset', default=0, type=int)
-    limit = request.args.get('limit', type=int)
-    usernames = db.get_all_usernames(offset=offset, limit=limit)
-    return jsonify(usernames=usernames)
-
-@app.route("/logs/user/<string:username>")
-def get_logs_by_username(username):
-    offset = request.args.get('offset', default=0, type=int)
-    limit = request.args.get('limit', type=int)
-    user_logs = db.get_by_username(username, offset=offset, limit=limit)
-    return jsonify(logs=user_logs)
-
-@app.route("/logs/machine")
-def get_all_machines():
-    offset = request.args.get('offset', default=0, type=int)
-    limit = request.args.get('limit', type=int)
-    machines = db.get_all_machines(offset=offset, limit=limit)
-    return jsonify(machines=machines)
-
-@app.route("/logs/machine/<string:machine>")
-def get_logs_by_machine(machine):
-    offset = request.args.get('offset', default=0, type=int)
-    limit = request.args.get('limit', type=int)
-    machine_logs = db.get_by_machine(machine, offset=offset, limit=limit)
-    return jsonify(logs=machine_logs)
-
-@app.route("/logs/date")
-def get_logs_by_date_range():
-    start_date = request.args.get('start')
-    end_date = request.args.get('end')
-    offset = request.args.get('offset', default=0, type=int)
-    limit = request.args.get('limit', type=int)
-    if not start_date or not end_date:
-        return jsonify({"error": "Please provide both start and end date in YYYY-MM-DD format"}), 400
-
-    date_logs = db.get_by_date_range(start_date, end_date, offset=offset, limit=limit)
-    return jsonify(logs=date_logs)
-
-@app.route("/search")
-def search_text():
-    query = request.args.get('q', '')
-    offset = request.args.get('offset', default=0, type=int)
-    limit = request.args.get('limit', type=int)
-    if not query:
-        return jsonify({"error": "Please provide a search query parameter 'q'"}), 400
-
-    search_results = db.search_text(query, offset=offset, limit=limit)
-    return jsonify(logs=search_results)
-
-# post
-@app.route("/logs", methods=['POST'])
-def add_log():
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    print(data)
-
-    timestamp = data.get("time", str(datetime.now()))
-    events = data.get("events", [])
-    username = data.get("username", "unknown")
-    machine = data.get("machine")
-    if timestamp and events:
-        db.insert_log(timestamp, events if type(events) == str else "".join(events), username, machine)
-
-    return jsonify({"message": "Logs added successfully"}), 201
+# TODO add support to get list of users and machines
+# TODO add search
 
 
 # delete
@@ -117,11 +56,55 @@ def delete_log(log_id):
     db.delete_log(log_id)
     return jsonify({"message": f"Log {log_id} deleted successfully"}), 200
 
+@app.route("/connections/<int:connection_id>", methods=['DELETE'])
+def delete_connection(connection_id):
+    db.delete_connection(connection_id)
+    return jsonify({"message": f"Connection {connection_id} deleted successfully"}), 200
+
+
 
 @app.route("/")
-def hello_world():
+def render_dashboard():
     return render_template("dashboard.html", base_url = getenv("BASE_URL"))
 
 
-if __name__ == "__main__":
-    app.run()
+
+# --------- WS ------------
+
+# ws hand-shake
+@socketio.on('connect')
+def handle_connect():
+    processor = request.headers.get('Processor')
+    username = request.headers.get('Username')
+    system = request.headers.get('System')
+    node = request.headers.get('Node')
+    release = request.headers.get('Release')
+    version = request.headers.get('Version')
+    machine = request.headers.get('Machine')
+    ip_address = request.remote_addr
+    timestamp = int(datetime.now().timestamp())
+    connection_id = db.init_connection(timestamp, username, processor, system, node, release, version, machine, ip_address)
+
+    session['connection_id'] = connection_id
+    print("New connection:", connection_id, username, ip_address)
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    connection_id = session.get('connection_id')
+    print("Client disconnected:", connection_id)
+    if connection_id:
+        db.close_connection(connection_id)
+        print("Connection closed:", connection_id)
+
+# ws event
+@socketio.on('ev')
+def handle_event(message):
+    print(f'Received event from {session.get("connection_id")}: {message}')
+    connection_id = int(session.get('connection_id'))
+    timestamp = int(datetime.now().timestamp())
+    if connection_id:
+        db.insert_log(connection_id, timestamp, message['ev'])
+        emit('ack', {'status': 'received'})
+
+if __name__ == '__main__':
+    socketio.run(app, allow_unsafe_werkzeug=True, debug=False)

