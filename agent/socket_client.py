@@ -4,7 +4,7 @@ import sys
 import socketio
 from dotenv import load_dotenv
 
-from client_details import get_client_details
+from agent.client_details import get_client_details
 
 load_dotenv()
 
@@ -21,7 +21,7 @@ def init_socket(debug=False):
 def disconnect_handler():
     """ Handle disconnection from server, exit program.
     """
-    print('Disconnected from server, shut down.')
+    print('\nDisconnected from server, shut down.')
     try:
         sys.exit(0)
     except SystemExit:
