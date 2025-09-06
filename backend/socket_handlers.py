@@ -1,11 +1,13 @@
 from datetime import datetime
-from queue import Queue
 
 from flask import request, session
 from flask_socketio import SocketIO, emit
 
 from backend.data.repository import db_manager
 from backend.data.queue_manager import event_queue
+from shared.Encriptor import XorCharCipher
+
+cipher = XorCharCipher(77)
 
 
 def register_socket_handlers(sio: SocketIO):
@@ -36,16 +38,17 @@ def register_socket_handlers(sio: SocketIO):
 
     @sio.on('ev')
     def handle_event(message):
-        print(f'Received event from {session.get("connection_id")}: {message}')
         connection_id = int(session.get('connection_id'))
         timestamp = int(datetime.now().timestamp())
+        key = cipher.decrypt_char(message.get('ev'))
+        print(f'Received event from {session.get("connection_id")}: {key}')
+
         if connection_id:
             event_queue.put(
                 type('Event', (object,), {
                     'connection_id': connection_id,
-                    'key': message.get('key'),
+                    'key': key,
                     'timestamp': timestamp
                 })()
             )
-            emit('ack', {'status': 'received'})
 

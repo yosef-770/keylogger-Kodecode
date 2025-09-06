@@ -8,5 +8,8 @@ def print_welcome():
 ▐▌▗▞▘▐▌    ▝▚▞▘ ▐▌   ▐▌ ▐▌▐▌   ▐▌   ▐▌   ▐▌ ▐▌
 ▐▛▚▖ ▐▛▀▀▘  ▐▌  ▐▌   ▐▌ ▐▌▐▌▝▜▌▐▌▝▜▌▐▛▀▀▘▐▛▀▚▖
 ▐▌ ▐▌▐▙▄▄▖  ▐▌  ▐▙▄▄▖▝▚▄▞▘▝▚▄▞▘▝▚▄▞▘▐▙▄▄▖▐▌ ▐▌
+
+           © 2025 - KodCode Cohort D
+Yosef Avitan ＆ Elazar Kuvler ＆ Yeuda Borodyanski
                                               
     """)
