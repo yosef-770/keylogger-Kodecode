@@ -4,10 +4,11 @@ from queue import Queue
 from flask import request, session
 from flask_socketio import SocketIO, emit
 
-from backend.db.db import DB
+from backend.data.repository import db_manager
+from backend.data.queue_manager import event_queue
 
 
-def register_socket_handlers(sio: SocketIO, db: DB, event_queue: Queue):
+def register_socket_handlers(sio: SocketIO):
     @sio.on('connect')
     def handle_connect():
         processor = request.headers.get('Processor')
@@ -19,8 +20,8 @@ def register_socket_handlers(sio: SocketIO, db: DB, event_queue: Queue):
         machine = request.headers.get('Machine')
         ip_address = request.remote_addr
         timestamp = int(datetime.now().timestamp())
-        connection_id = db.init_connection(timestamp, username, processor, system, node, release, version, machine,
-                                           ip_address)
+        connection_id = db_manager.init_connection(timestamp, username, processor, system, node, release, version, machine,
+                                                   ip_address)
 
         session['connection_id'] = connection_id
         print("New connection:", connection_id, username, ip_address)
@@ -30,7 +31,7 @@ def register_socket_handlers(sio: SocketIO, db: DB, event_queue: Queue):
         connection_id = session.get('connection_id')
         print("Client disconnected:", connection_id)
         if connection_id:
-            db.close_connection(connection_id)
+            db_manager.close_connection(connection_id)
             print("Connection closed:", connection_id)
 
     @sio.on('ev')

@@ -1,5 +1,8 @@
 import sqlite3
 
+from backend.config import Config
+
+
 class DB:
     conn = None
     cursor = None
@@ -149,3 +152,5 @@ class DB:
         self.cursor.execute(query, params)
         rows = self.cursor.fetchall()
         return [dict(row) for row in rows]
+
+db_manager = DB(Config.DQLITE_PATH)
