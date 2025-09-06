@@ -7,3 +7,4 @@ python-socketio~=5.13.0
 dotenv~=0.9.9
 websocket-client==1.8.0
 urllib3==1.26.6
+pynput==1.8.1
