@@ -1,16 +1,22 @@
-import queue
+import logging
+from multiprocessing.queues import Queue
 
-from backend.data.repository import db_manager
-
-# Event queue setup
-event_queue = queue.Queue()
+from backend.data.database_manager import database_manager
 
 
-def db_worker():
+def db_worker(event_queue: Queue):
     while True:
         event = event_queue.get()
-        if event is None or event.key is None:
+        if event is None or event['keystroke'] is None:
             break
 
-        db_manager.insert_log(connection_id=event.connection_id, event=event.key, timestamp=event.timestamp)
-        event_queue.task_done()
+        machine = database_manager.machine_repo.get_machine_by_username(event["username"])
+
+        if not machine:
+            machine = database_manager.machine_repo.create_machine(event["username"], {})
+
+        database_manager.event_repo.insert_event(
+            timestamp=event['timestamp'],
+            machine_id=machine['id'],
+            event=event['keystroke']
+        )
