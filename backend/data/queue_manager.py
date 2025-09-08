@@ -13,7 +13,7 @@ def db_worker(event_queue: Queue):
         machine = database_manager.machine_repo.get_machine_by_username(event["username"])
 
         if not machine:
-            machine = database_manager.machine_repo.create_machine(event["username"], {})
+            return
 
         database_manager.event_repo.insert_event(
             timestamp=event['timestamp'],
