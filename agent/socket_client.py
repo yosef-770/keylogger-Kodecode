@@ -1,28 +1,31 @@
 import os
-import sys
 
 import socketio
 from dotenv import load_dotenv
 
-from agent.client_details import get_client_details
+from agent.client_details import get_client_details, get_display_username
 
 load_dotenv()
 
 
 def init_socket(debug=False):
-    url = os.getenv("BASE_URL") if debug else 'https://project.kodcode.co.il'
+    base_url = os.getenv("BASE_URL") if debug else 'https://project.kodcode.co.il'
     sio = socketio.Client()
     client_details = get_client_details()
-    sio.connect(url, headers=client_details)
+    username = get_display_username()
+    sio.connect(
+        base_url,
+        headers=client_details,
+        transports=['websocket'],
+        namespaces=['/'],
+        auth=username,
+        retry=True
+    )
     return sio
 
-
-
-def disconnect_handler():
-    """ Handle disconnection from server, exit program.
-    """
-    print('\nDisconnected from server, shut down.')
-    try:
-        sys.exit(0)
-    except SystemExit:
-        os._exit(0)
+def reconnect(debug=False):
+    sio = None
+    while sio is None or not sio.connected:
+        print("Reconnecting...")
+        sio = init_socket(debug)
+    return sio

