@@ -21,6 +21,7 @@ def init_socket(debug=False):
         auth=username,
         retry=True
     )
+    print(f'''\033[32m ◎ ◉ Connected to \033[31m{"development" if debug else "production"}\033[32m server: [{base_url}/] ◎ ◉ \033[0m''')
     return sio
 
 def reconnect(debug=False):
