@@ -69,7 +69,7 @@ def register_socket_handlers(sio: SocketIO, event_queue: Queue):
             if username:
                 payload = {
                     'username': username,
-                    'keystroke': keystroke,
+                    'event': keystroke,
                     'timestamp': timestamp
                 }
                 event_queue.put(payload)
