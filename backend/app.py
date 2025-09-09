@@ -14,6 +14,10 @@ from backend.data.queue_manager import db_worker
 from backend.socket_handlers import register_socket_handlers
 from backend.config import Config
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 logging.basicConfig(level=logging.INFO)
 
 if __name__ == '__main__':
