@@ -5,13 +5,14 @@ from multiprocessing import Queue
 
 from flask import Flask
 from flask_socketio import SocketIO
+from flask_cors import CORS
 
 from backend.routes.events_route import events_bp
 from backend.routes.machines_route import machines_bp
 from backend.routes.frontend import frontend_bp
-from data.queue_manager import db_worker
-from socket_handlers import register_socket_handlers
-from config import Config
+from backend.data.queue_manager import db_worker
+from backend.socket_handlers import register_socket_handlers
+from backend.config import Config
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,10 +25,12 @@ if __name__ == '__main__':
     worker_process.start()
     print("DB Worker thread started")
 
-
     # Flask
     app = Flask(__name__)
     app.config.from_object(Config)
+    
+    # Enable CORS for all routes
+    CORS(app)
 
     app.jinja_env.variable_start_string = '[['
     app.jinja_env.variable_end_string = ']]'
@@ -39,4 +42,4 @@ if __name__ == '__main__':
     socketio = SocketIO(app, cors_allowed_origins="*")
     register_socket_handlers(socketio, event_queue)
 
-    socketio.run(app, debug=False)
+    socketio.run(app, allow_unsafe_werkzeug=True, debug=False)
