@@ -11,5 +11,4 @@ def print_welcome():
 
            © 2025 - KodCode Cohort D
 Yosef Avitan ＆ Elazar Kowler ＆ Yeuda Borodyanski
-                                              
-    \033[0m""")
+\033[0m""".strip())
