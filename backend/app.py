@@ -46,4 +46,6 @@ if __name__ == '__main__':
     socketio = SocketIO(app, cors_allowed_origins="*")
     register_socket_handlers(socketio, event_queue)
 
-    socketio.run(app, allow_unsafe_werkzeug=True, debug=False)
+    socketio.run(app, host="127.0.0.1", port=5000, debug=False)
+
+    # socketio.run(app, allow_unsafe_werkzeug=True, debug=False)
