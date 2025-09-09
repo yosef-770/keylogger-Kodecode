@@ -7,7 +7,7 @@
 
 # Keylogger — פרויקט גמר
 
-[![Postman](https://img.shields.io/badge/Postman-API_Tests-FF6C37?logo=postman&logoColor=white)](https://www.postman.com/)
+[![Postman](https://img.shields.io/badge/Postman-API_Tests-FF6C37?logo=postman&logoColor=white)](https://www.postman.com/telecoms-engineer-78795300/keylogger)
 
 
 ## Instruction:
@@ -53,4 +53,5 @@ First, you need to create a `.evn` file, contains the variables listed in `.env.
 TODO()
 ```bash
 export PYTHONPATH=$(pwd)
-python backend/app.py```
+python backend/app.py
+```
