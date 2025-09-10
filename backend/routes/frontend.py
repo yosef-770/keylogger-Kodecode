@@ -7,6 +7,10 @@ frontend_bp = Blueprint("frontend", __name__)
 def render_dashboard():
     return render_template("dashboard.html", base_url=current_app.config["BASE_URL"])
 
+@frontend_bp.route("/about")
+def render_about():
+    return render_template("about.html")
+
 @frontend_bp.route("/favicon.ico")
 def favicon():
     # Get the path to the static folder (one level up from backend/routes)
