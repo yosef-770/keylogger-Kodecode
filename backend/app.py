@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import logging
 import multiprocessing
 import threading
@@ -43,9 +46,14 @@ if __name__ == '__main__':
     app.register_blueprint(events_bp, url_prefix="/api/events")
     app.register_blueprint(frontend_bp)
 
-    socketio = SocketIO(app, cors_allowed_origins="*")
+    socketio = SocketIO(
+        app, 
+        cors_allowed_origins="*",
+        async_mode='threading',
+        transports=['websocket', 'polling'],
+        logger=True,
+        engineio_logger=True
+    )
     register_socket_handlers(socketio, event_queue)
 
-    socketio.run(app, host="127.0.0.1", port=5000, debug=False)
-
-    # socketio.run(app, allow_unsafe_werkzeug=True, debug=False)
+    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True, debug=False)
