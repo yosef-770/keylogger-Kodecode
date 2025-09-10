@@ -442,7 +442,7 @@
     const qrCode = new QRCodeStyling({
       width: 300,
       height: 300,
-      data: location.origin,
+      data: location.origin + "/",
       image: location.origin + "/favicon.ico", // change to your icon URL
       qrOptions: {
         // error correction level high so center image won't break it
