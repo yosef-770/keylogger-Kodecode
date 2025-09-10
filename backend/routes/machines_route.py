@@ -1,3 +1,5 @@
+from curses.ascii import isdigit
+
 from flask import Blueprint, request, jsonify, abort
 
 from backend.data.database_manager import database_manager
@@ -13,7 +15,7 @@ def get_machines():
     title = request.args.get('title')
 
     status = request.args.get('status')
-    status = bool(status) if status else None
+    status = int(status) if status and isdigit(status) else None
 
     if any([username, title, status]):
         machines = database_manager.machine_repo.get_machines(

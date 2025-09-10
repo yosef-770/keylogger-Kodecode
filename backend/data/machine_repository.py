@@ -86,11 +86,12 @@ class MachineRepository(BaseRepository):
         params = []
 
         if username:
-            query += " AND display_username = ?"
-            params.append(username)
+            query += " AND LOWER(display_username) LIKE ?"
+            params.append(f"%{username.lower()}%")
         if title:
-            query += " AND title = ?"
-            params.append(title)
+            query += " AND LOWER(title) LIKE ?"
+            params.append(f"%{title.lower()}%")
+
         if status:
             query += " AND active = ?"
             params.append(status)
