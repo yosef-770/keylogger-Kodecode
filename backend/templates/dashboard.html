@@ -724,6 +724,40 @@
         return lastUpdate;
     }
 
+
+    function EditableLabel({text, setText, placeholder}) {
+        const [editMode, setEditMode] = useState(false)
+        const [value, setValue] = useState("")
+
+        return (
+            (editMode || !text) ? <form className="row g-1 align-items-center"
+                onSubmit={e => {
+                    e.preventDefault()
+                    setText(value)
+                    setEditMode(false)
+                }}>
+                <div className="col-auto">
+                    <input
+                        placeholder={placeholder}
+                        type="text"
+                        className="form-control-sm"
+                        value={value}
+                        onChange={e => setValue(e.target.value)}
+                        onBlur={() => {
+                            setText(value)
+                            setEditMode(false)
+                        }}/>
+                </div>
+                <div className="col-auto">
+                    <button className="btn btn-outline-primary btn-sm" type="submit">
+                        <i className="bi bi-check-lg"></i>
+                    </button>
+                </div>
+            </form> : <h5 onClick={() => setEditMode(true)}
+                          className="text-muted editable-label"><b className="fw-bold text-success">#{text}</b> <small>(Click to change)</small></h5>
+        )
+    }
+
     // Machine Details Component
     function MachineDetailView({machineId, onBack}) {
         const [machine, setMachine] = useState(null);
@@ -798,7 +832,6 @@
 
         const scrollToBottom = () => {
             const contentArea = timelineContainerRef.current
-                // && timelineContainerRef.current.querySelector('.timeline-content-area');
             if (contentArea) {
                 contentArea.scrollTop = contentArea.scrollHeight;
             }
@@ -864,8 +897,9 @@
             }
         };
 
-        const updateTitle = () => {
+        const updateTitle = (title) => {
             if (!title) return
+            setMachine(prev => ({...prev, title}))
             API.updateMachineTitle(machine.display_username, title)
         }
 
@@ -934,8 +968,9 @@
             if (!system) return <i className="bi bi-question-circle" title="Unknown OS"></i>;
             const lowerSystem = system.toLowerCase();
             if (lowerSystem.includes('windows')) return <i className="bi bi-windows" title={system}></i>;
-            if (lowerSystem.includes('mac') || lowerSystem.includes('apple') || lowerSystem.includes('darwin')) return <i className="bi bi-apple"
-                                                                                        title={system}></i>;
+            if (lowerSystem.includes('mac') || lowerSystem.includes('apple') || lowerSystem.includes('darwin')) return <i
+                className="bi bi-apple"
+                title={system}></i>;
             if (lowerSystem.includes('linux')) return <i className="bi bi-ubuntu" title={system}></i>;
             return <i className="bi bi-pc-display-horizontal" title={system}></i>;
         };
@@ -1124,11 +1159,12 @@
                         <div className="d-flex align-items-center">
                             <span className={`status-dot me-3 ${machine.active ? 'active' : 'inactive'}`}></span>
                             <div>
-                                <h4 className="mb-0">{machine.display_username}</h4>
-                                {machine.title ? <h6>{machine.title}</h6> : <input
-                                    type="text" placeholder="Enter a title..." onBlur={updateTitle}
-                                    value={title} onChange={setTitle}
-                                />}
+                                <h4 className="mb-2">{machine.display_username}</h4>
+                                <EditableLabel
+                                    placeholder="Enter machine title..."
+                                    text={machine.title}
+                                    setText={updateTitle}
+                                />
                                 <small className="text-muted">
                                     {machine.active ? 'Active' : 'Inactive'} • First
                                     connected {formatDate(machine.first_login)}
