@@ -850,7 +850,7 @@
             if (!system) return <i className="bi bi-question-circle" title="Unknown OS"></i>;
             const lowerSystem = system.toLowerCase();
             if (lowerSystem.includes('windows')) return <i className="bi bi-windows" title={system}></i>;
-            if (lowerSystem.includes('mac') || lowerSystem.includes('apple')) return <i className="bi bi-apple"
+            if (lowerSystem.includes('mac') || lowerSystem.includes('apple') || lowerSystem.includes('darwin')) return <i className="bi bi-apple"
                                                                                         title={system}></i>;
             if (lowerSystem.includes('linux')) return <i className="bi bi-ubuntu" title={system}></i>;
             return <i className="bi bi-pc-display-horizontal" title={system}></i>;
