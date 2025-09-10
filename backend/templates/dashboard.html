@@ -178,12 +178,32 @@
         /* CSS for Timeline */
         .timeline-container {
             display: flex;
-            height: 500px;
             background-color: #1a1a1a;
             border: 1px solid #333;
             border-radius: 8px;
             overflow: hidden;
         }
+
+        .timeline-card {
+            height: 540px;
+            overflow-y: scroll;
+        }
+
+        .card-header, .card-footer {
+            z-index: 15;
+            position: sticky;
+            background: var(--bs-tertiary-bg);
+        }
+
+        .card-header {
+            top: 0;
+        }
+
+        .card-footer {
+            bottom: 0;
+            color: var(--bs-light-text-emphasis);
+        }
+
 
         .timeline-sidebar {
             width: 120px;
@@ -651,10 +671,58 @@
         );
     }
 
+
+    function useLastUpdate(events) {
+        const [lastUpdate, setLastUpdate] = useState("");
+        const lastUpdateRef = useRef(null);
+
+
+        function timeAgo(unixTime) {
+            const timestamp = unixTime < 1e12 ? unixTime * 1000 : unixTime;
+            const now = Date.now();
+            const diffMs = now - timestamp;
+
+            const seconds = Math.floor(diffMs / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours   = Math.floor(minutes / 60);
+            const days    = Math.floor(hours / 24);
+            const weeks   = Math.floor(days / 7);
+            const months  = Math.floor(days / 30);
+            const years   = Math.floor(days / 365);
+
+            if (seconds < 60) return `${seconds}s ago`;
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24)   return `${hours}h ago`;
+            if (days < 7)     return `${days}d ago`;
+            if (weeks < 5)    return `${weeks}w ago`;
+            if (months < 12)  return `${months}mo ago`;
+            return `${years}y ago`;
+        }
+
+        useEffect(() => {
+            if (events.length) {
+                lastUpdateRef.current = events.at(-1).timestamp;
+            }
+        }, [events]);
+
+        useEffect(() => {
+            const int = setInterval(() => {
+                if (lastUpdateRef.current) {
+                    setLastUpdate(`Last update ${timeAgo(lastUpdateRef.current)}.`);
+                }
+            }, 1000);
+
+            return () => clearInterval(int);
+        }, []);
+
+        return lastUpdate;
+    }
+
     // Machine Details Component
     function MachineDetailView({machineId, onBack}) {
         const [machine, setMachine] = useState(null);
         const [events, setEvents] = useState([]);
+        const lastUpdate = useLastUpdate(events);
         const [loading, setLoading] = useState(true);
         const [eventsLoading, setEventsLoading] = useState(true);
         const [autoScroll, setAutoScroll] = useState(true);
@@ -662,6 +730,7 @@
         const [socketConnected, setSocketConnected] = useState(false);
         const [title, setTitle] = useState("")
         const timelineRef = useRef(null);
+        const timelineContainerRef = useRef(null);
         const [isFullScreen, setIsFullScreen] = useState(false)
 
         const [tooltip, setTooltip] = useState({
@@ -705,29 +774,6 @@
             }
         };
 
-        function timeAgo(unixTime) {
-            // Support both seconds and milliseconds
-            const timestamp = unixTime < 1e12 ? unixTime * 1000 : unixTime;
-            const now = Date.now();
-            const diffMs = now - timestamp;
-
-            const seconds = Math.floor(diffMs / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const hours   = Math.floor(minutes / 60);
-            const days    = Math.floor(hours / 24);
-            const weeks   = Math.floor(days / 7);
-            const months  = Math.floor(days / 30);
-            const years   = Math.floor(days / 365);
-
-            if (seconds < 60) return `${seconds}s ago`;
-            if (minutes < 60) return `${minutes}m ago`;
-            if (hours < 24)   return `${hours}h ago`;
-            if (days < 7)     return `${days}d ago`;
-            if (weeks < 5)    return `${weeks}w ago`;
-            if (months < 12)  return `${months}mo ago`;
-            return `${years}y ago`;
-        }
-
         const loadEvents = async () => {
             try {
                 setEventsLoading(true);
@@ -745,7 +791,8 @@
         };
 
         const scrollToBottom = () => {
-            const contentArea = timelineRef.current && timelineRef.current.querySelector('.timeline-content-area');
+            const contentArea = timelineContainerRef.current
+                // && timelineContainerRef.current.querySelector('.timeline-content-area');
             if (contentArea) {
                 contentArea.scrollTop = contentArea.scrollHeight;
             }
@@ -774,13 +821,35 @@
         }
 
         const toggleFullScreen = () => {
-            if (!timelineRef.current) return
+            if (!timelineContainerRef.current) return;
+
             if (!document.fullscreenElement) {
-                timelineRef.current.requestFullscreen();
+                setIsFullScreen(true)
+                // enter fullscreen
+                if (timelineContainerRef.current.requestFullscreen) {
+                    timelineContainerRef.current.requestFullscreen();
+                } else if (timelineContainerRef.current.webkitRequestFullscreen) { // Safari
+                    timelineContainerRef.current.webkitRequestFullscreen();
+                } else if (timelineContainerRef.current.mozRequestFullScreen) { // Firefox
+                    timelineContainerRef.current.mozRequestFullScreen();
+                } else if (timelineContainerRef.current.msRequestFullscreen) { // IE/Edge
+                    timelineContainerRef.current.msRequestFullscreen();
+                }
             } else {
-                document.exitFullscreen();
+                setIsFullScreen(false)
+                // exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
             }
-        }
+        };
+
 
         const toggleAutoScroll = () => {
             setAutoScroll(!autoScroll);
@@ -1127,7 +1196,7 @@
                     </div>
                 </div>
 
-                <div className="card">
+                <div className="card timeline-card" ref={timelineContainerRef}>
                     <div className="card-header d-flex justify-content-between align-items-center">
                         <h5 className="mb-0">Typing History</h5>
                         <div>
@@ -1185,7 +1254,7 @@
                                 </div>
                                 <div className="timeline-content-area">
                                     {itemsToRender.length ? itemsToRender : "No data to display..."}
-                                    <span className="typing-indicator" ></span>
+                                    <span className="typing-indicator"></span>
                                 </div>
 
                                 {tooltip.visible && (
@@ -1194,7 +1263,7 @@
                                         style={{
                                             position: "absolute",
                                             right: 10,
-                                            top:  40, // todo fix to fit the element position
+                                            top: 40, // todo fix to fit the element position
                                             zIndex: 9999,
                                             pointerEvents: "none",
 
