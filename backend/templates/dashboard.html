@@ -867,7 +867,7 @@
 
                 if (eventText === '\n' || eventText === 'Key.enter') {
                     items.push(<br key={i}></br>)
-                } else if (eventText === '\b' || eventText === 'Key.backspace') {
+                } else if (eventText === '\b' || eventText === 'backspace') {
                     items.pop()
                 } else if (eventText === '\t' || eventText === 'Key.tab') {
                     items.push(<span key={i}>    </span>)
