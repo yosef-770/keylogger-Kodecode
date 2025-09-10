@@ -213,6 +213,12 @@
             flex-shrink: 0;
         }
 
+        @media screen and (max-width: 900px) {
+            .timeline-sidebar {
+                width: 90px;
+            }
+        }
+
         .timeline-content-area {
             flex: 1;
             overflow-y: auto;
@@ -1203,26 +1209,26 @@
                             <button onClick={() => _print(itemsToRender)}
                                     className="btn btn-sm btn-outline-primary ms-2">
                                 <i className="bi bi-printer-fill me-1"></i>
-                                Print
+                                <span className="d-none d-md-inline">Print</span>
                             </button>
                             <button onClick={toggleFullScreen}
                                     className="btn btn-sm btn-outline-primary ms-2">
                                 <i className={`bi ${isFullScreen ? "bi-fullscreen-exit" : "bi-fullscreen"} me-1`}></i>
-                                {isFullScreen && "Exit"} Full Screen
-                            </button>
-                            <button
-                                className={`btn btn-sm ${autoScroll ? 'btn-success' : 'btn-outline-secondary'}`}
-                                onClick={toggleAutoScroll}
-                            >
-                                <i className={`bi ${autoScroll ? 'bi-pause-fill' : 'bi-play-fill'} me-1`}></i>
-                                {autoScroll ? 'Stop Scroll' : 'Auto Scroll'}
+                                <span className="d-none d-md-inline">{isFullScreen && "Exit"} Full Screen</span>
                             </button>
                             <button
                                 className="btn btn-sm btn-outline-primary ms-2"
                                 onClick={scrollToBottom}
                             >
                                 <i className="bi bi-arrow-down me-1"></i>
-                                Scroll to Bottom
+                                <span className="d-none d-md-inline">Scroll to Bottom</span>
+                            </button>
+                            <button
+                                className={`btn ms-2 btn-sm ${autoScroll ? 'btn-success' : 'btn-outline-secondary'}`}
+                                onClick={toggleAutoScroll}
+                            >
+                                <i className={`bi ${autoScroll ? 'bi-pause-fill' : 'bi-play-fill'} me-1`}></i>
+                                <span className="d-none d-md-inline">{autoScroll ? 'Stop Scroll' : 'Auto Scroll'}</span>
                             </button>
                         </div>
                     </div>
